@@ -916,6 +916,10 @@ public partial class SpeechTestView : ContentView, IDrawable
                     break;
             }
         }
+
+        // Forcing an update of the sound player settings, as the tranducer may not be manually selected by the user.
+        UpdateSoundPlayerSettings();
+
     }
 
 
