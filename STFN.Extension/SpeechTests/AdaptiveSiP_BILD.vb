@@ -8,7 +8,7 @@ Imports STFN.Core.Audio.SoundScene
 Imports STFN.Core.TestProtocol
 Imports STFN.Core.Utils
 Imports STFN.Core
-Imports STFN.SipTest
+Imports STFN.Extension.SipTest
 
 Public Class AdaptiveSiP_BILD
 

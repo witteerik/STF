@@ -28,7 +28,7 @@ namespace OstfTabletSuite
             InitializeComponent();
 
             // Instantiating the StfBase object
-            Globals.StfBase = new STFN.SftBaseExtension();
+            Globals.StfBase = new STFN.Extension.SftBaseExtension();
 
             Messager.OnNewMessage += (title, message, cancelButtonText) =>
             {

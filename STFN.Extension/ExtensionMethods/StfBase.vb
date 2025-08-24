@@ -38,7 +38,7 @@ Public Class SftBaseExtension
             'Initializing the port audio library
             If Audio.PortAudio.Pa_GetDeviceCount = Audio.PortAudio.PaError.paNotInitialized Then
                 Dim Pa_Initialize_ReturnValue = Audio.PortAudio.Pa_Initialize
-                If Pa_Initialize_ReturnValue = Global.STFN.Audio.PortAudio.PaError.paNoError Then
+                If Pa_Initialize_ReturnValue = Global.STFN.Extension.Audio.PortAudio.PaError.paNoError Then
                     _PortAudioIsInitialized = True
                 Else
                     Throw New Exception("Unable to initialize PortAudio library for audio processing." & vbCrLf & vbCrLf &

@@ -6,7 +6,7 @@
 
 Imports System.Xml.Serialization
 Imports System.Runtime.Serialization
-Imports STFN.Audio
+Imports STFN.Extension.Audio
 
 <Serializable>
 Public Class AudiogramData

@@ -137,7 +137,7 @@ Namespace Audio
             Public Property FftWindowSize As Integer
             Public Property AnalysisWindowSize As Integer
             Public Property OverlapSize As Integer
-            Public Property WindowingType As DSP.WindowingType = WindowingType.Rectangular
+            Public Property WindowingType As DSP.WindowingType = DSP.WindowingType.Rectangular
             Public Property Tukey_r As Double
 
             ''' <summary>

@@ -6,7 +6,7 @@
 
 Imports System.IO
 Imports System.Threading
-Imports STFN.Audio
+Imports STFN.Extension.Audio
 Imports STFN.Core
 Imports STFN.Core.Audio
 
@@ -7263,7 +7263,7 @@ Public Class DSP
         'Exporting the sound to file
         Dim TempSoundOriginalFileName As String = "TemporarySoundOriginal"
         Dim TempSoundResampledFileName As String = "TemporarySoundResampled"
-        STFN.Audio.AudioIOs.SaveToWaveFile(InputSound, Path.Combine(WorkFolder, TempSoundOriginalFileName))
+        STFN.Extension.Audio.AudioIOs.SaveToWaveFile(InputSound, Path.Combine(WorkFolder, TempSoundOriginalFileName))
 
         'Creating resampled file
 
@@ -7283,7 +7283,7 @@ Public Class DSP
         sp.Close()
 
         'Reading the resample files from file
-        Dim ResampledSignalSound = STFN.Audio.AudioIOs.ReadWaveFile(Path.Combine(WorkFolder, TempSoundResampledFileName) & ".wav")
+        Dim ResampledSignalSound = STFN.Extension.Audio.AudioIOs.ReadWaveFile(Path.Combine(WorkFolder, TempSoundResampledFileName) & ".wav")
 
         'Deleting the temporary files
         File.Delete(Path.Combine(WorkFolder, TempSoundOriginalFileName) & ".wav")

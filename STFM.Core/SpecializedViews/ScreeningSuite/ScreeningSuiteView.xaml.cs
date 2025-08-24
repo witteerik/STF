@@ -838,7 +838,7 @@ public partial class ScreeningSuiteView : ContentView
     {
 
         // Directing the call to the main thread if not already on the main thread
-        /// if (MainThread.IsMainThread == false) { MethodBase currentMethod = MethodBase.GetCurrentMethod(); MainThread.BeginInvokeOnMainThread(() => { currentMethod.Invoke(this, [Value, Maximum, Minimum]); }); return; }
+        // if (MainThread.IsMainThread == false) { MethodBase currentMethod = MethodBase.GetCurrentMethod(); MainThread.BeginInvokeOnMainThread(() => { currentMethod.Invoke(this, [Value, Maximum, Minimum]); }); return; }
 
         if (CurrentResponseView != null)
         {
@@ -1011,7 +1011,7 @@ public partial class ScreeningSuiteView : ContentView
     {
 
         // Directing the call to the main thread if not already on the main thread
-        /// if (MainThread.IsMainThread == false) { MethodBase currentMethod = MethodBase.GetCurrentMethod(); MainThread.BeginInvokeOnMainThread(() => { currentMethod.Invoke(this, null); }); return; }
+        // if (MainThread.IsMainThread == false) { MethodBase currentMethod = MethodBase.GetCurrentMethod(); MainThread.BeginInvokeOnMainThread(() => { currentMethod.Invoke(this, null); }); return; }
 
 
         // Initializing a new trial, this should always stop any timers in the CurrentResponseView that may still be running from the previuos trial 
@@ -1058,7 +1058,7 @@ public partial class ScreeningSuiteView : ContentView
     {
 
         // Directing the call to the main thread if not already on the main thread
-        /// if (MainThread.IsMainThread == false) { MethodBase currentMethod = MethodBase.GetCurrentMethod(); MainThread.BeginInvokeOnMainThread(() => { currentMethod.Invoke(this, [sender, e]); }); return; }
+        // if (MainThread.IsMainThread == false) { MethodBase currentMethod = MethodBase.GetCurrentMethod(); MainThread.BeginInvokeOnMainThread(() => { currentMethod.Invoke(this, [sender, e]); }); return; }
 
 
         if (sender != null)
@@ -1240,7 +1240,7 @@ public partial class ScreeningSuiteView : ContentView
     {
 
         // Directing the call to the main thread if not already on the main thread
-        /// if (MainThread.IsMainThread == false) { MethodBase currentMethod = MethodBase.GetCurrentMethod(); MainThread.BeginInvokeOnMainThread(() => { currentMethod.Invoke(this, new object[] { wasStoppedBeforeFinished }); }); return; }
+        // if (MainThread.IsMainThread == false) { MethodBase currentMethod = MethodBase.GetCurrentMethod(); MainThread.BeginInvokeOnMainThread(() => { currentMethod.Invoke(this, new object[] { wasStoppedBeforeFinished }); }); return; }
 
         // Stopping all timers
         StopAllTrialEventTimers();

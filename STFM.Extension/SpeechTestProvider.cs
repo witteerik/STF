@@ -33,7 +33,7 @@ namespace STFM.Extension
                     speechTestInitiator.SelectedSpeechMaterialName = "Swedish SiP-test"; // Leave as an empty string if the user should select manually
 
                     // Creating the speech test instance, and also stors it in SharedSpeechTestObjects
-                    speechTestInitiator.SpeechTest = new STFN.AdaptiveSiP_BILD(speechTestInitiator.SelectedSpeechMaterialName);
+                    speechTestInitiator.SpeechTest = new STFN.Extension.AdaptiveSiP_BILD(speechTestInitiator.SelectedSpeechMaterialName);
                     SharedSpeechTestObjects.CurrentSpeechTest = speechTestInitiator.SpeechTest;
 
                     // Creating a test options view

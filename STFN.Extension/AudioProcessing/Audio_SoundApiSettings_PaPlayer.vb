@@ -87,7 +87,7 @@ Namespace Audio
         Public Function SetAsioSoundDevice(ByVal DeviceName As String, Optional ByVal BufferSize As Integer = 256) As Boolean
 
             'Checking if PortAudio has been initialized 
-            If DirectCast(Globals.StfBase, STFN.SftBaseExtension).PortAudioIsInitialized = False Then Throw New Exception("The PortAudio library has not been initialized. This should have been done by a call to the function OsftBase.InitializeSTF.")
+            If DirectCast(Globals.StfBase, STFN.Extension.SftBaseExtension).PortAudioIsInitialized = False Then Throw New Exception("The PortAudio library has not been initialized. This should have been done by a call to the function OsftBase.InitializeSTF.")
 
             'Selects the ASIO host type
             Dim hostApiCount As Integer = PortAudio.Pa_GetHostApiCount()
