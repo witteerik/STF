@@ -110,11 +110,13 @@ namespace STFM.Extension
 
                 case "SiP-testet (TSFC)":
 
+                    // Using this to start building the adaptive SiP-test versions used in the TSFC study
+
                     // Selecting the speech material name
                     speechTestInitiator.SelectedSpeechMaterialName = "Swedish SiP-test"; // Leave as an empty string if the user should select manually
 
-                    // Creating the speech test instance, and also stors it in SharedSpeechTestObjects
-                    speechTestInitiator.SpeechTest = new AdaptiveSiP(speechTestInitiator.SelectedSpeechMaterialName);
+                    // Creating the speech test instance, and also stores it in SharedSpeechTestObjects
+                    speechTestInitiator.SpeechTest = new AdaptiveSip_TsfcStudy(speechTestInitiator.SelectedSpeechMaterialName);
                     SharedSpeechTestObjects.CurrentSpeechTest = speechTestInitiator.SpeechTest;
 
                     // Creating a test options view
