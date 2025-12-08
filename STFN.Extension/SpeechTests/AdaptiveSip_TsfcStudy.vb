@@ -15,6 +15,20 @@ Public Class AdaptiveSip_TsfcStudy
 
     Public Overrides ReadOnly Property FilePathRepresentation As String = "SiP_Tsfc"
 
+    Private BallparkLength As Integer = 4
+    Private TestSectionTripletCount As Integer = 40
+
+    'Setting the sound source locations
+    Private SipTargetStimulusLocations As SoundSourceLocation() = {New SoundSourceLocation With {.HorizontalAzimuth = 0, .Distance = 1.45}}
+    Private SipMaskerLocations As SoundSourceLocation() = {
+            New SoundSourceLocation With {.HorizontalAzimuth = -30, .Distance = 1.45},
+            New SoundSourceLocation With {.HorizontalAzimuth = 30, .Distance = 1.45}}
+    Private SipBackgroundLocations As SoundSourceLocation() = {
+            New SoundSourceLocation With {.HorizontalAzimuth = -60, .Distance = 1.45},
+            New SoundSourceLocation With {.HorizontalAzimuth = -60, .Distance = 1.45},
+            New SoundSourceLocation With {.HorizontalAzimuth = 150, .Distance = 1.45},
+            New SoundSourceLocation With {.HorizontalAzimuth = -150, .Distance = 1.45}}
+
 
     Public Sub New(ByVal SpeechMaterialName As String)
         MyBase.New(SpeechMaterialName)
@@ -64,7 +78,7 @@ Public Class AdaptiveSip_TsfcStudy
 
     Private PresetName As String = "QuickSiP"
 
-    Private ResultsSummary As SortedList(Of Double, Tuple(Of SipTestList, Double))
+    'Private ResultsSummary As SortedList(Of Double, Tuple(Of SipTestList, Double))
 
     Public Overrides Function InitializeCurrentTest() As Tuple(Of Boolean, String)
 
@@ -99,202 +113,84 @@ Public Class AdaptiveSip_TsfcStudy
         End If
 
         'Setting up test trials to run
-        PlanQuickSiPTrials(SelectedSoundPropagationType, RandomSeed)
+        PlanSiPTrials(SelectedSoundPropagationType, RandomSeed)
 
         If CurrentSipTestMeasurement.HasSimulatedSoundFieldTrials = True And Globals.StfBase.DirectionalSimulator.SelectedDirectionalSimulationSetName = "" Then
             Return New Tuple(Of Boolean, String)(False, "The measurement requires a directional simulation set to be selected!")
         End If
 
+        'Setting test protocol
+        TestProtocol = New STFN.Core.BrandKollmeier2002_TestProtocol
+
         Return New Tuple(Of Boolean, String)(True, "")
 
     End Function
 
-    Dim SipTestLists As New List(Of SipTestList)
-
-    Public Class SipTestList
-        Public SMC As SpeechMaterialComponent
-        Public MediaSet As MediaSet
-        Public PNR As Double
-    End Class
 
     Public Overrides Function GetScorePerLevel() As Tuple(Of String, SortedList(Of Double, Double))
 
-        Dim PnrScoresList = GetPnrScores()
-        Dim OutputList = New SortedList(Of Double, Double)
+        Throw New NotImplementedException
 
-        For Each kvp In PnrScoresList
-            OutputList.Add(kvp.Key, kvp.Value.Item2)
-        Next
+        'Dim PnrScoresList = GetPnrScores()
+        'Dim OutputList = New SortedList(Of Double, Double)
 
-        Return New Tuple(Of String, SortedList(Of Double, Double))("PNR (dB)", OutputList)
+        'For Each kvp In PnrScoresList
+        '    OutputList.Add(kvp.Key, kvp.Value.Item2)
+        'Next
 
-    End Function
-
-    Public Function GetPnrScores() As SortedList(Of Double, Tuple(Of SipTestList, Double))
-
-        Dim ResultList As New List(Of Tuple(Of SipTestList, Double)) ' QuickSipList, MeanScore
-
-        For i = 0 To SipTestLists.Count - 1
-
-            Dim CurrentSipTestList = SipTestLists(i)
-            Dim CurrentScoresList As New List(Of Double)
-
-            For Each Trial In CurrentSipTestMeasurement.ObservedTrials
-                If Trial.MediaSet Is CurrentSipTestList.MediaSet And
-                        Trial.PNR = CurrentSipTestList.PNR And
-                        Trial.SpeechMaterialComponent.ParentComponent Is CurrentSipTestList.SMC Then
-
-                    If Trial.IsCorrect = True Then
-                        CurrentScoresList.Add(1)
-                    Else
-                        CurrentScoresList.Add(0)
-                    End If
-
-                End If
-            Next
-
-            Dim AverageScore As Double = Double.NaN
-            If CurrentScoresList.Count > 0 Then
-                AverageScore = CurrentScoresList.Average
-            End If
-
-            ResultList.Add(New Tuple(Of SipTestList, Double)(CurrentSipTestList, AverageScore))
-        Next
-
-        Dim PnrSortedList As New SortedList(Of Double, Tuple(Of SipTestList, Double))
-        For Each Result In ResultList
-            PnrSortedList.Add(Result.Item1.PNR, Result)
-        Next
-
-        Return PnrSortedList
+        'Return New Tuple(Of String, SortedList(Of Double, Double))("PNR (dB)", OutputList)
 
     End Function
 
-    Public Overrides Function GetSubGroupResults() As List(Of Tuple(Of String, Double))
+    'Public Function GetPnrScores() As SortedList(Of Double, Tuple(Of SipTestList, Double))
 
-        Dim ObservedTrials = GetObservedTestTrials().ToList
-        If ObservedTrials.Count = 0 Then Return Nothing
+    '    Dim ResultList As New List(Of Tuple(Of SipTestList, Double)) ' QuickSipList, MeanScore
 
-        'Adding keys in the intended order 
-        Dim GroupScoreList As New Dictionary(Of String, List(Of Integer))
-        GroupScoreList.Add("Vokaler", New List(Of Integer))
-        GroupScoreList.Add("Konsonanter", New List(Of Integer))
+    '    For i = 0 To SipTestLists.Count - 1
 
-        Dim DirectionsList As New SortedSet(Of String)
-        For Each Trial In ObservedTrials
-            Dim CurrentHorizontalAzimuth As Double = DirectCast(Trial, SipTrial).TargetStimulusLocations(0).HorizontalAzimuth ' Using the first target location only
-            Select Case CurrentHorizontalAzimuth
-                Case > 0
-                    DirectionsList.Add("Höger (" & CurrentHorizontalAzimuth & "°)")
-                Case < 0
-                    DirectionsList.Add("Vänster (" & CurrentHorizontalAzimuth & "°)")
-                Case Else
-                    'This should not be used in Quick SiP
-                    DirectionsList.Add("Framifrån")
-            End Select
-        Next
+    '        Dim CurrentSipTestList = SipTestLists(i)
+    '        Dim CurrentScoresList As New List(Of Double)
 
-        For Each Trial In CurrentSipTestMeasurement.PlannedTrials
-            Dim CurrentHorizontalAzimuth As Double = DirectCast(Trial, SipTrial).TargetStimulusLocations(0).HorizontalAzimuth ' Using the first target location only
-            Select Case CurrentHorizontalAzimuth
-                Case > 0
-                    DirectionsList.Add("Höger (" & CurrentHorizontalAzimuth & "°)")
-                Case < 0
-                    DirectionsList.Add("Vänster (" & CurrentHorizontalAzimuth & "°)")
-                Case Else
-                    'This should not be used in Quick SiP
-                    DirectionsList.Add("Framifrån")
-            End Select
-        Next
+    '        For Each Trial In CurrentSipTestMeasurement.ObservedTrials
+    '            If Trial.MediaSet Is CurrentSipTestList.MediaSet And
+    '                    Trial.PNR = CurrentSipTestList.PNR And
+    '                    Trial.SpeechMaterialComponent.ParentComponent Is CurrentSipTestList.SMC Then
 
-        For Each item In DirectionsList
-            GroupScoreList.Add(item, New List(Of Integer))
-        Next
+    '                If Trial.IsCorrect = True Then
+    '                    CurrentScoresList.Add(1)
+    '                Else
+    '                    CurrentScoresList.Add(0)
+    '                End If
 
-        GroupScoreList.Add("Man", New List(Of Integer))
-        GroupScoreList.Add("Kvinna", New List(Of Integer))
+    '            End If
+    '        Next
 
-        'Adding data
-        For Each Trial In ObservedTrials
+    '        Dim AverageScore As Double = Double.NaN
+    '        If CurrentScoresList.Count > 0 Then
+    '            AverageScore = CurrentScoresList.Average
+    '        End If
 
-            'Getting the sub score 
-            Dim Score As Double = Trial.ScoreList.Average
+    '        ResultList.Add(New Tuple(Of SipTestList, Double)(CurrentSipTestList, AverageScore))
+    '    Next
 
-            'Step 1 - Consonants / vowels
-            'Getting the group
-            Dim SubGroupName1 As String
-            Select Case Trial.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation
-                Case "fyr_skyr_syr", "kil_fil_sil", "tuff_tuss_tusch"
-                    SubGroupName1 = "Konsonanter"
-                Case "sitt_sytt_sött", "mark_märk_mörk"
-                    SubGroupName1 = "Vokaler"
-                Case Else
-                    Throw New Exception("Unexpected test list")
-            End Select
+    '    Dim PnrSortedList As New SortedList(Of Double, Tuple(Of SipTestList, Double))
+    '    For Each Result In ResultList
+    '        PnrSortedList.Add(Result.Item1.PNR, Result)
+    '    Next
 
-            'Adding the score to the sub-score list
-            GroupScoreList(SubGroupName1).Add(Score)
+    '    Return PnrSortedList
 
-
-            'Step 2 - Left / right side azimuth
-            Dim SubGroupName2 As String
-            Dim CurrentHorizontalAzimuth As Double = DirectCast(Trial, SipTrial).TargetStimulusLocations(0).HorizontalAzimuth ' Using the first target location only
-            Select Case CurrentHorizontalAzimuth
-                Case > 0
-                    SubGroupName2 = "Höger (" & CurrentHorizontalAzimuth & "°)"
-                Case < 0
-                    SubGroupName2 = "Vänster (" & CurrentHorizontalAzimuth & "°)"
-                Case Else
-                    SubGroupName2 = "Framifrån"
-            End Select
-
-            'Adding the score to the sub-score list
-            GroupScoreList(SubGroupName2).Add(Score)
-
-
-            'Step 3 - Male / female
-            Dim SubGroupName3 As String
-            Select Case DirectCast(Trial, SipTrial).MediaSet.TalkerGender
-                Case MediaSet.Genders.Male
-                    SubGroupName3 = "Man"
-                Case MediaSet.Genders.Female
-                    SubGroupName3 = "Kvinna"
-                Case Else
-                    Throw New Exception("Unexpected talker gender in Quick SiP")
-            End Select
-
-            'Adding the score to the sub-score list
-            GroupScoreList(SubGroupName3).Add(Score)
-
-        Next
-
-        Dim Output As New List(Of Tuple(Of String, Double))
-        For Each kvp In GroupScoreList
-            If kvp.Value.Any Then
-                Output.Add(New Tuple(Of String, Double)(kvp.Key, kvp.Value.Average))
-            Else
-                Output.Add(New Tuple(Of String, Double)(kvp.Key, 0))
-            End If
-        Next
-
-        Return Output
-
-    End Function
+    'End Function
 
     Public Shared Function GetTestPnrs() As List(Of Double)
 
-        Dim PNRs As New List(Of Double)
-        Dim TempPnr As Double = 15
-        For i = 0 To 9
-            PNRs.Add(TempPnr)
-            TempPnr -= 3.5
-        Next
-
+        'TODO: Adjust for constant stimuli test
+        Dim PNRs As New List(Of Double) From {-5, 0, 5}
         Return PNRs
 
     End Function
 
-    Private Sub PlanQuickSiPTrials(ByVal SoundPropagationType As SoundPropagationTypes, Optional ByVal RandomSeed As Integer? = Nothing)
+    Private Sub PlanSiPTrials(ByVal SoundPropagationType As SoundPropagationTypes, Optional ByVal RandomSeed As Integer? = Nothing)
 
         Dim AllMediaSets As List(Of MediaSet) = AvailableMediasets
 
@@ -312,152 +208,58 @@ Public Class AdaptiveSip_TsfcStudy
         'Getting the preset
         Dim Preset = CurrentSipTestMeasurement.ParentTestSpecification.SpeechMaterial.Presets.GetPreset(PresetName).Members
 
-        ' Continue here
+        'Adding trials into TestUnits. One TestUnit for each test word group.
+        For Each TWG In Preset
 
-        'Getting the sound source locations
-        'Head slightly turned right (i.e. Speech on left side)
-        Dim TargetStimulusLocations_HeadTurnedRight As SoundSourceLocation()
-        Dim MaskerLocations_HeadTurnedRight As SoundSourceLocation()
-        Dim BackgroundLocations_HeadTurnedRight As SoundSourceLocation()
+            'Creating a new test unit
+            Dim NewTestUnit = New SiPTestUnit(CurrentSipTestMeasurement, TWG.PrimaryStringRepresentation)
 
-        'Head slightly turned left (i.e. Speech on right side)
-        Dim TargetStimulusLocations_HeadTurnedLeft As SoundSourceLocation()
-        Dim MaskerLocations_HeadTurnedLeft As SoundSourceLocation()
-        Dim BackgroundLocations_HeadTurnedLeft As SoundSourceLocation()
+            'Getting the test words (i.e. sentence level components)
+            Dim TestWords = TWG.GetChildren
 
-        'Placing trials with 10 degrees of rotation is no longer (after 2025-01-05) used only with SimulatedSoundField, but also with loadspeakers at 0 / 180 degrees.
-        'Note, however, that the actual audio signal will be rounded to the 0 / 180 degrees speakers, only if no closer speaker exist in the loudspeaker setup used. 
-        ' Thus, in sound field, this test can only be performed if speakers are more than 20 degrees (equaliiy spaces) apart (with at least one in front and back positions).
-        ' Note that for calculating speaker distance, not only the azimuth, but also the distance (and elevation?) is used.
+            'Planning a maximum number of trials
+            Dim MaxTrialCount As Integer = BallparkLength + 3 * TestSectionTripletCount
 
-        'Head slightly turned right (i.e. Speech on left side)
-        TargetStimulusLocations_HeadTurnedRight = {New SoundSourceLocation With {.HorizontalAzimuth = -10, .Distance = 1.45}}
-        MaskerLocations_HeadTurnedRight = {New SoundSourceLocation With {.HorizontalAzimuth = 170, .Distance = 1.45}}
-        BackgroundLocations_HeadTurnedRight = {New SoundSourceLocation With {.HorizontalAzimuth = -10, .Distance = 1.45}, New SoundSourceLocation With {.HorizontalAzimuth = 170, .Distance = 1.45}}
+            'Adding ballpark trials
+            'TODO: Implement sequence restrictions
+            For i = 0 To BallparkLength - 1
+                'Drawing test words at random
+                Dim RandomIndex As Integer = CurrentSipTestMeasurement.Randomizer.Next(0, TestWords.Count)
 
-        'Head slightly turned left (i.e. Speech on right side)
-        TargetStimulusLocations_HeadTurnedLeft = {New SoundSourceLocation With {.HorizontalAzimuth = 10, .Distance = 1.45}}
-        MaskerLocations_HeadTurnedLeft = {New SoundSourceLocation With {.HorizontalAzimuth = 190, .Distance = 1.45}}
-        BackgroundLocations_HeadTurnedLeft = {New SoundSourceLocation With {.HorizontalAzimuth = 10, .Distance = 1.45}, New SoundSourceLocation With {.HorizontalAzimuth = 190, .Distance = 1.45}}
+                'Creating the trial
+                Dim NewTestTrial As New SipTrial(NewTestUnit, TestWords(RandomIndex), SelectedMediaSets.First, SoundPropagationType,
+                                                 SipTargetStimulusLocations, SipMaskerLocations, SipBackgroundLocations, CurrentSipTestMeasurement.Randomizer)
 
+                'Adding the trial
+                NewTestUnit.PlannedTrials.Add(NewTestTrial)
 
-        'Clearing any trials that may have been planned by a previous call
-        CurrentSipTestMeasurement.ClearTrials()
-
-        'Talker in front
-        Dim PNRs As List(Of Double) = GetTestPnrs()
-
-        SipTestLists.Add(New SipTestList With {.SMC = Preset(0), .MediaSet = SelectedMediaSets(1), .PNR = PNRs(0)})
-        SipTestLists.Add(New SipTestList With {.SMC = Preset(1), .MediaSet = SelectedMediaSets(0), .PNR = PNRs(1)})
-
-        SipTestLists.Add(New SipTestList With {.SMC = Preset(2), .MediaSet = SelectedMediaSets(1), .PNR = PNRs(2)})
-        SipTestLists.Add(New SipTestList With {.SMC = Preset(3), .MediaSet = SelectedMediaSets(0), .PNR = PNRs(3)})
-
-        SipTestLists.Add(New SipTestList With {.SMC = Preset(4), .MediaSet = SelectedMediaSets(1), .PNR = PNRs(4)})
-        SipTestLists.Add(New SipTestList With {.SMC = Preset(0), .MediaSet = SelectedMediaSets(0), .PNR = PNRs(5)})
-
-        SipTestLists.Add(New SipTestList With {.SMC = Preset(1), .MediaSet = SelectedMediaSets(1), .PNR = PNRs(6)})
-        SipTestLists.Add(New SipTestList With {.SMC = Preset(2), .MediaSet = SelectedMediaSets(0), .PNR = PNRs(7)})
-
-        SipTestLists.Add(New SipTestList With {.SMC = Preset(3), .MediaSet = SelectedMediaSets(1), .PNR = PNRs(8)})
-        SipTestLists.Add(New SipTestList With {.SMC = Preset(4), .MediaSet = SelectedMediaSets(0), .PNR = PNRs(9)})
-
-
-        'A list that determines which SipTestLists that will be randomized together
-        Dim NewTestUnitIndices As New List(Of Integer) From {0, 2, 4, 6, 8}
-
-        Dim CurrentTestUnit As SiPTestUnit = Nothing
-        Dim TrialsAdded As Integer = 0
-
-        For i = 0 To SipTestLists.Count - 1
-
-            If NewTestUnitIndices.Contains(i) Then
-                If CurrentTestUnit IsNot Nothing Then
-                    CurrentSipTestMeasurement.TestUnits.Add(CurrentTestUnit)
-                End If
-                CurrentTestUnit = New SiPTestUnit(CurrentSipTestMeasurement)
-            End If
-
-            Dim PresetComponent = SipTestLists(i).SMC
-            Dim MediaSet = SipTestLists(i).MediaSet
-            Dim PNR = SipTestLists(i).PNR
-
-            Dim TestWords = PresetComponent.GetAllDescenentsAtLevel(SpeechMaterialComponent.LinguisticLevels.Sentence)
-            CurrentTestUnit.SpeechMaterialComponents.AddRange(TestWords)
-
-            For c = 0 To TestWords.Count - 1
-                Dim NewTrial As SipTrial = Nothing
-
-                'Adding left and right head turns systematically to every other trial
-                If TrialsAdded Mod 2 = 0 Then
-                    NewTrial = New SipTrial(CurrentTestUnit, TestWords(c), MediaSet, SoundPropagationType, TargetStimulusLocations_HeadTurnedRight.ToArray, MaskerLocations_HeadTurnedRight.ToArray, BackgroundLocations_HeadTurnedRight, CurrentTestUnit.ParentMeasurement.Randomizer)
-                Else
-                    NewTrial = New SipTrial(CurrentTestUnit, TestWords(c), MediaSet, SoundPropagationType, TargetStimulusLocations_HeadTurnedLeft.ToArray, MaskerLocations_HeadTurnedLeft.ToArray, BackgroundLocations_HeadTurnedLeft, CurrentTestUnit.ParentMeasurement.Randomizer)
-                End If
-
-                NewTrial.SetLevels(ReferenceLevel, PNR)
-                CurrentTestUnit.PlannedTrials.Add(NewTrial)
-
-                TrialsAdded += 1
             Next
+
+            'Adding test section trials
+            For i = 0 To TestSectionTripletCount - 1
+
+                'Getting a vector of test word indices to draw
+                Dim RandomIndices = STFN.Core.DSP.SampleWithoutReplacement(TestWords.Count, 0, TestWords.Count)
+
+                For Each RandomIndex In RandomIndices
+
+                    'Creating the trial
+                    Dim NewTestTrial As New SipTrial(NewTestUnit, TestWords(RandomIndex), SelectedMediaSets.First, SoundPropagationType,
+                                                 SipTargetStimulusLocations, SipMaskerLocations, SipBackgroundLocations, CurrentSipTestMeasurement.Randomizer)
+
+                    'Adding the trial
+                    NewTestUnit.PlannedTrials.Add(NewTestTrial)
+
+                Next
+            Next
+
+            'Adding the test unit
+            CurrentSipTestMeasurement.TestUnits.Add(NewTestUnit)
+
         Next
 
-        'Adds the last unit
-        CurrentSipTestMeasurement.TestUnits.Add(CurrentTestUnit)
 
-
-        'Randomizing the order within units, in blocks of three trials (so that the head doesn't have to be moved between every trial). Note that this latter is a modification from the initial Quick-SiP data collection in 2024.
-
-        'Randomizing the start order, left Right
-        Dim DirectionIndex As Integer = CurrentSipTestMeasurement.Randomizer.Next(0, 2)
-
-        For ui = 0 To CurrentSipTestMeasurement.TestUnits.Count - 1
-            Dim Unit As SiPTestUnit = CurrentSipTestMeasurement.TestUnits(ui)
-
-            Dim UnitLeftTurnTrials = New List(Of SipTrial)
-            Dim UnitRightTurnTrials = New List(Of SipTrial)
-
-            For Each Trial In Unit.PlannedTrials
-                If Trial.TargetStimulusLocations(0).HorizontalAzimuth < 0 Then
-                    ' Sound source is to the left of the head -> head is right turned in comparison
-                    UnitRightTurnTrials.Add(Trial)
-                Else
-                    ' Sound source is to the right of the head -> head is left turned in comparison
-                    UnitLeftTurnTrials.Add(Trial)
-                End If
-            Next
-
-            Dim RandomList As New List(Of SipTrial)
-            For r = 0 To 1
-
-                If DirectionIndex = 0 Then
-
-                    Do Until UnitRightTurnTrials.Count = 0
-                        Dim RandomIndex As Integer = CurrentSipTestMeasurement.Randomizer.Next(0, UnitRightTurnTrials.Count)
-                        RandomList.Add(UnitRightTurnTrials(RandomIndex))
-                        UnitRightTurnTrials.RemoveAt(RandomIndex)
-                    Loop
-
-                    'Swapping the value of DirectionIndex, so that the other side gets included next time
-                    DirectionIndex = 1
-                Else
-
-                    Do Until UnitLeftTurnTrials.Count = 0
-                        Dim RandomIndex As Integer = CurrentSipTestMeasurement.Randomizer.Next(0, UnitLeftTurnTrials.Count)
-                        RandomList.Add(UnitLeftTurnTrials(RandomIndex))
-                        UnitLeftTurnTrials.RemoveAt(RandomIndex)
-                    Loop
-
-                    'Swapping the value of DirectionIndex, so that the other side gets included next time
-                    DirectionIndex = 0
-                End If
-
-            Next
-
-            Unit.PlannedTrials = RandomList
-        Next
-
-        'Adding the trials CurrentSipTestMeasurement (from which they can be drawn during testing)
+        'Adding the trials to CurrentSipTestMeasurement PlannedTrials (from which they can be drawn during testing)
         For ui = 0 To CurrentSipTestMeasurement.TestUnits.Count - 1
             Dim Unit As SiPTestUnit = CurrentSipTestMeasurement.TestUnits(ui)
             For Each Trial In Unit.PlannedTrials
@@ -473,15 +275,20 @@ Public Class AdaptiveSip_TsfcStudy
         CurrentSipTestMeasurement.MeasurementDateTime = DateTime.Now
 
         'Cretaing a context sound without any test stimulus, that runs for approx TestSetup.PretestSoundDuration seconds, using audio from the first selected MediaSet
-        Dim SelectedMediaSets As List(Of MediaSet) = AvailableMediasets
+        Dim AllMediaSets As List(Of MediaSet) = AvailableMediasets
 
-        Dim TestSound As STFN.Core.Audio.Sound = CreateInitialSound(SelectedMediaSets(0))
+        Dim SelectedMediaSets As New List(Of MediaSet)
+        Dim IncludedMediaSetNames As New List(Of String) From {"City-Talker1-RVE"}
+        For Each AvailableMediaSet In AllMediaSets
+            If IncludedMediaSetNames.Contains(AvailableMediaSet.MediaSetName) Then
+                SelectedMediaSets.Add(AvailableMediaSet)
+            End If
+        Next
+
+        Dim TestSound As STFN.Core.Audio.Sound = CreateInitialSound(SelectedMediaSets.First)
 
         'Plays sound
         Globals.StfBase.SoundPlayer.SwapOutputSounds(TestSound)
-
-        'Premixing the first 10 sounds 
-        CurrentSipTestMeasurement.PreMixTestTrialSoundsOnNewTread(Transducer, MinimumStimulusOnsetTime, MaximumStimulusOnsetTime, Randomizer, TrialSoundMaxDuration, UseBackgroundSpeech, 10)
 
     End Sub
 
@@ -517,6 +324,8 @@ Public Class AdaptiveSip_TsfcStudy
             'Copies copies random sections of the background non-speech sound into two sounds
             Dim Background1 = BackgroundNonSpeech_Sound.CopySection(1, Randomizer.Next(0, BackgroundNonSpeech_Sound.WaveData.SampleData(1).Length - TrialSoundLength - 2), TrialSoundLength)
             Dim Background2 = BackgroundNonSpeech_Sound.CopySection(1, Randomizer.Next(0, BackgroundNonSpeech_Sound.WaveData.SampleData(1).Length - TrialSoundLength - 2), TrialSoundLength)
+            Dim Background3 = BackgroundNonSpeech_Sound.CopySection(1, Randomizer.Next(0, BackgroundNonSpeech_Sound.WaveData.SampleData(1).Length - TrialSoundLength - 2), TrialSoundLength)
+            Dim Background4 = BackgroundNonSpeech_Sound.CopySection(1, Randomizer.Next(0, BackgroundNonSpeech_Sound.WaveData.SampleData(1).Length - TrialSoundLength - 2), TrialSoundLength)
 
             'Sets up fading specifications for the background signals
             Dim FadeSpecs_Background = New List(Of DSP.FadeSpecifications)
@@ -526,11 +335,14 @@ Public Class AdaptiveSip_TsfcStudy
             'Adds the background (non-speech) signals, with fade, duck and location specifications
             Dim LevelGroup As Integer = 1 ' The level group value is used to set the added sound level of items sharing the same (arbitrary) LevelGroup value to the indicated sound level. (Thus, the sounds with the same LevelGroup value are measured together.)
 
-            Dim BackgroundLocations_HeadTurnedRight = {New SoundSourceLocation With {.HorizontalAzimuth = -10, .Distance = 1.45}, New SoundSourceLocation With {.HorizontalAzimuth = 170, .Distance = 1.45}}
             ItemList.Add(New SoundSceneItem(Background1, 1, SelectedMediaSet.BackgroundNonspeechRealisticLevel, LevelGroup,
-                                            BackgroundLocations_HeadTurnedRight(0), SoundSceneItem.SoundSceneItemRoles.BackgroundNonspeech, 0,,,, FadeSpecs_Background))
+                                            SipBackgroundLocations(0), SoundSceneItem.SoundSceneItemRoles.BackgroundNonspeech, 0,,,, FadeSpecs_Background))
             ItemList.Add(New SoundSceneItem(Background2, 1, SelectedMediaSet.BackgroundNonspeechRealisticLevel, LevelGroup,
-                                            BackgroundLocations_HeadTurnedRight(1), SoundSceneItem.SoundSceneItemRoles.BackgroundNonspeech, 0,,,, FadeSpecs_Background))
+                                            SipBackgroundLocations(1), SoundSceneItem.SoundSceneItemRoles.BackgroundNonspeech, 0,,,, FadeSpecs_Background))
+            ItemList.Add(New SoundSceneItem(Background3, 1, SelectedMediaSet.BackgroundNonspeechRealisticLevel, LevelGroup,
+                                            SipBackgroundLocations(2), SoundSceneItem.SoundSceneItemRoles.BackgroundNonspeech, 0,,,, FadeSpecs_Background))
+            ItemList.Add(New SoundSceneItem(Background4, 1, SelectedMediaSet.BackgroundNonspeechRealisticLevel, LevelGroup,
+                                            SipBackgroundLocations(3), SoundSceneItem.SoundSceneItemRoles.BackgroundNonspeech, 0,,,, FadeSpecs_Background))
             LevelGroup += 1
 
             MixStopWatch.Stop()
@@ -542,10 +354,6 @@ Public Class AdaptiveSip_TsfcStudy
 
             If LogToConsole = True Then Console.WriteLine("Mixed sound in " & MixStopWatch.ElapsedMilliseconds & " ms.")
 
-            'TODO: Here we can simulate and/or compensate for hearing loss:
-            'SimulateHearingLoss,
-            'CompensateHearingLoss
-
             Return MixedInitialSound
 
         Catch ex As Exception
@@ -555,30 +363,75 @@ Public Class AdaptiveSip_TsfcStudy
 
     End Function
 
+    Public Overrides Function GetSpeechTestReply(sender As Object, e As SpeechTestInputEventArgs) As SpeechTestReplies
 
-    Private Sub PrepareTestTrialSound()
+        If e IsNot Nothing Then
 
-        Try
+            'This is an incoming test trial response
 
-            If (CurrentSipTestMeasurement.ObservedTrials.Count + 3) Mod 10 = 0 Then
-                'Premixing the next 10 sounds, starting three trials before the next is needed 
-                CurrentSipTestMeasurement.PreMixTestTrialSoundsOnNewTread(Transducer, MinimumStimulusOnsetTime, MaximumStimulusOnsetTime, Randomizer, TrialSoundMaxDuration, UseBackgroundSpeech, 10)
-            End If
+            'Corrects the trial response, based on the given response
 
-            'Waiting for the background thread to finish mixing
-            Dim WaitPeriods As Integer = 0
-            While CurrentTestTrial.Sound Is Nothing
-                WaitPeriods += 1
-                Threading.Thread.Sleep(100)
-                If LogToConsole = True Then Console.WriteLine("Waiting for sound to mix: " & WaitPeriods * 100 & " ms")
-            End While
+            'Resets the CurrentTestTrial.ScoreList
+            'And also storing SiP-test type data
+            CurrentTestTrial.ScoreList = New List(Of Integer)
+            Select Case e.LinguisticResponses(0)
+                Case CurrentTestTrial.SpeechMaterialComponent.GetCategoricalVariableValue("Spelling")
+                    CurrentTestTrial.ScoreList.Add(1)
+                    DirectCast(CurrentTestTrial, SipTrial).Result = SipTrial.PossibleResults.Correct
+                    CurrentTestTrial.IsCorrect = True
 
-        Catch ex As Exception
-            'Ignores any exceptions...
-            'Utils.SendInfoToLog(ex.ToString, "ExceptionsDuringTesting")
-        End Try
+                Case ""
+                    CurrentTestTrial.ScoreList.Add(0)
+                    DirectCast(CurrentTestTrial, SipTrial).Result = SipTrial.PossibleResults.Missing
 
-    End Sub
+                    'Randomizing IsCorrect with a 1/3 chance for True
+                    Dim ChanceList As New List(Of Boolean) From {True, False, False}
+                    Dim RandomIndex As Integer = Randomizer.Next(ChanceList.Count)
+                    CurrentTestTrial.IsCorrect = ChanceList(RandomIndex)
+
+                Case Else
+                    CurrentTestTrial.ScoreList.Add(0)
+                    DirectCast(CurrentTestTrial, SipTrial).Result = SipTrial.PossibleResults.Incorrect
+                    CurrentTestTrial.IsCorrect = False
+
+            End Select
+
+            DirectCast(CurrentTestTrial, SipTrial).Response = e.LinguisticResponses(0)
+
+            'Moving to trial history
+            CurrentSipTestMeasurement.MoveTrialToHistory(CurrentTestTrial)
+
+            'Taking a dump of the SpeechTest
+            CurrentTestTrial.SpeechTestPropertyDump = Logging.ListObjectPropertyValues(Me.GetType, Me)
+
+
+        Else
+            'Nothing to correct (this should be the start of a new test)
+            'Playing initial sound, and premixing trials
+            InitiateTestByPlayingSound()
+
+        End If
+
+        'TODO: We must store the responses and response times!!!
+
+        'Calculating the speech level
+        Dim EvaluationTrials = CurrentSipTestMeasurement.ObservedTrials
+        'TODO: This needs to be modified
+        Dim ProtocolReply = TestProtocol.NewResponse(EvaluationTrials)
+
+        If CurrentSipTestMeasurement.PlannedTrials.Count = 0 Then
+            'Test is completed
+            Return SpeechTestReplies.TestIsCompleted
+        End If
+
+        'Preparing next trial if needed
+        If ProtocolReply.Decision = SpeechTestReplies.GotoNextTrial Then
+            PrepareNextTrial(ProtocolReply)
+        End If
+
+        Return ProtocolReply.Decision
+
+    End Function
 
 
     Protected Overrides Sub PrepareNextTrial(ByVal NextTaskInstruction As TestProtocol.NextTaskInstruction)
@@ -586,6 +439,10 @@ Public Class AdaptiveSip_TsfcStudy
         'Preparing the next trial
         CurrentTestTrial = CurrentSipTestMeasurement.GetNextTrial()
         CurrentTestTrial.TestStage = NextTaskInstruction.TestStage
+
+        'Setting levels of the SiP trial
+        DirectCast(CurrentTestTrial, SipTrial).SetLevels(ReferenceLevel, NextTaskInstruction.AdaptiveValue)
+
         CurrentTestTrial.Tasks = 1
         CurrentTestTrial.ResponseAlternativeSpellings = New List(Of List(Of SpeechTestResponseAlternative))
         Dim ResponseAlternatives As New List(Of SpeechTestResponseAlternative)
@@ -606,7 +463,7 @@ Public Class AdaptiveSip_TsfcStudy
         CurrentTestTrial.ResponseAlternativeSpellings.Add(ResponseAlternatives)
 
         'Mixing trial sound
-        PrepareTestTrialSound()
+        DirectCast(CurrentTestTrial, SipTrial).MixSound(Transducer, MinimumStimulusOnsetTime, MaximumStimulusOnsetTime, Randomizer, TrialSoundMaxDuration, UseBackgroundSpeech)
 
         'Storing the LinguisticSoundStimulusStartTime and the LinguisticSoundStimulusDuration 
         CurrentTestTrial.LinguisticSoundStimulusStartTime = DirectCast(CurrentTestTrial, SipTrial).TestWordStartTime
@@ -700,24 +557,26 @@ Public Class AdaptiveSip_TsfcStudy
 
     Public Overrides Function GetResultStringForGui() As String
 
-        Dim Output As New List(Of String)
+        Return "Not yet implemented"
 
-        Dim AverageScore As Double? = GetAverageScore()
-        If AverageScore.HasValue Then
-            Output.Add("Overall score: " & DSP.Rounding(100 * GetAverageScore()) & "%")
-        End If
+        'Dim Output As New List(Of String)
 
-        ResultsSummary = GetPnrScores()
+        'Dim AverageScore As Double? = GetAverageScore()
+        'If AverageScore.HasValue Then
+        '    Output.Add("Overall score: " & DSP.Rounding(100 * GetAverageScore()) & "%")
+        'End If
 
-        If ResultsSummary IsNot Nothing Then
-            Output.Add("Scores per PNR level:")
-            Output.Add("PNR (dB)" & vbTab & "Score" & vbTab & "List")
-            For Each kvp In ResultsSummary
-                Output.Add(kvp.Value.Item1.PNR & vbTab & DSP.Rounding(100 * kvp.Value.Item2) & " %" & vbTab & kvp.Value.Item1.SMC.PrimaryStringRepresentation)
-            Next
-        End If
+        'ResultsSummary = GetPnrScores()
 
-        Return String.Join(vbCrLf, Output)
+        'If ResultsSummary IsNot Nothing Then
+        '    Output.Add("Scores per PNR level:")
+        '    Output.Add("PNR (dB)" & vbTab & "Score" & vbTab & "List")
+        '    For Each kvp In ResultsSummary
+        '        Output.Add(kvp.Value.Item1.PNR & vbTab & DSP.Rounding(100 * kvp.Value.Item2) & " %" & vbTab & kvp.Value.Item1.SMC.PrimaryStringRepresentation)
+        '    Next
+        'End If
+
+        'Return String.Join(vbCrLf, Output)
 
     End Function
 
@@ -729,4 +588,7 @@ Public Class AdaptiveSip_TsfcStudy
         Return New List(Of String)
     End Function
 
+    Public Overrides Function GetSubGroupResults() As List(Of Tuple(Of String, Double))
+        Throw New NotImplementedException()
+    End Function
 End Class
