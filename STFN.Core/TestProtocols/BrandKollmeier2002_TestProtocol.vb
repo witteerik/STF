@@ -42,6 +42,13 @@ Public Class BrandKollmeier2002_TestProtocol
     Private TestLength As Integer
     Public Property Slope As Double = 0.16 'This is the slope of the psychometric function of the test material (0.16 is the slope for the Swedish Hagerman test according to Kollmeier et al 2015)' This parameter could be read from the MediaSet specification file to allow for different speech materials 
 
+    ''' <summary>
+    ''' If this is set to True (default) only sentence tests are allowed. 
+    ''' </summary>
+    ''' <returns></returns>
+    Public Property EnsureSentenceTest As Boolean = True
+
+
     Public Overrides Function InitializeProtocol(ByRef InitialTaskInstruction As NextTaskInstruction) As Boolean
 
         'Setting the (initial) adaptive level (should be the speech level) specified by the calling code
@@ -69,10 +76,12 @@ Public Class BrandKollmeier2002_TestProtocol
             Return New NextTaskInstruction With {.AdaptiveValue = NextAdaptiveLevel, .Decision = SpeechTest.SpeechTestReplies.GotoNextTrial}
         End If
 
-        'Ensuring that it's a sentence test
-        If TrialHistory(TrialHistory.Count - 1).Tasks = 1 Then
-            'The test needs to be aborted since it's not a sentence test. (TODO: No info about the error is sent. Maybe this should instead throw an exception, or info need to be sent somehow.)
-            Return New NextTaskInstruction With {.Decision = SpeechTest.SpeechTestReplies.AbortTest}
+        If EnsureSentenceTest Then
+            'Ensuring that it's a sentence test
+            If TrialHistory(TrialHistory.Count - 1).Tasks = 1 Then
+                'The test needs to be aborted since it's not a sentence test. (TODO: No info about the error is sent. Maybe this should instead throw an exception, or info need to be sent somehow.)
+                Return New NextTaskInstruction With {.Decision = SpeechTest.SpeechTestReplies.AbortTest}
+            End If
         End If
 
         'Calculating adaptive step size

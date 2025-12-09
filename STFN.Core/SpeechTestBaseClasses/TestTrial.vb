@@ -56,6 +56,24 @@ Public Class TestTrialCollection
 
     End Function
 
+    ''' <summary>
+    ''' Creates a new instance of TestTrialCollection and copies the specified range of items and the EvaluationTrialCount to it.
+    ''' </summary>
+    ''' <param name="index"></param>
+    ''' <param name="count"></param>
+    ''' <returns></returns>
+    Public Shadows Function GetRange(index As Integer, count As Integer) As TestTrialCollection
+
+        'TODO: If this class is extended with more members, these will also have to be copied here
+
+        Dim Output As New TestTrialCollection
+        Output.EvaluationTrialCount = EvaluationTrialCount
+        Output.AddRange(MyBase.GetRange(index, count))
+        Return Output
+
+    End Function
+
+
 End Class
 
 Public Class TestTrial

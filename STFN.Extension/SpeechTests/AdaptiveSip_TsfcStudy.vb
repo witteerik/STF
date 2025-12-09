@@ -21,6 +21,10 @@ Public Class AdaptiveSip_TsfcStudy
     Private StartAdaptiveLevel As Double = 0
     Private BallparkStepSize As Double = 5
 
+    Private MinPNR As Double = -10
+    Private MaxPNR As Double = 15
+
+
     'Private IsTSFC As Boolean = False
 
 
@@ -129,6 +133,10 @@ Public Class AdaptiveSip_TsfcStudy
         TestProtocol = New STFN.Core.BrandKollmeier2002_TestProtocol
         DirectCast(TestProtocol, BrandKollmeier2002_TestProtocol).Slope = 0.034 'TODO: Check this value
         DirectCast(TestProtocol, BrandKollmeier2002_TestProtocol).TargetScore = 2 / 3
+        DirectCast(TestProtocol, BrandKollmeier2002_TestProtocol).EnsureSentenceTest = False
+
+        'TODO: each test unit needs its own TestProtocol!
+        TestProtocol.InitializeProtocol(New TestProtocol.NextTaskInstruction With {.AdaptiveValue = 0, .TestLength = CurrentSipTestMeasurement.TestUnits(0).PlannedTrials.Count - BallparkLength})
 
         Return New Tuple(Of Boolean, String)(True, "")
 
@@ -422,24 +430,30 @@ Public Class AdaptiveSip_TsfcStudy
 
         'TODO: We must store the responses and response times!!!
 
-        'Preparing the next trial
-        CurrentTestTrial = CurrentSipTestMeasurement.GetNextTrial()
-
-        'Returning if no more trials are prepared
-        If CurrentTestTrial Is Nothing Then
+        'Returning if no more trials to present
+        If CurrentSipTestMeasurement.PlannedTrials.Count = 0 Then
             'Test is completed
             Return SpeechTestReplies.TestIsCompleted
         End If
 
+        'Preparing the next trial
+        CurrentTestTrial = CurrentSipTestMeasurement.GetNextTrial()
+
         'Calculating the speech level
         Dim ProtocolReply As TestProtocol.NextTaskInstruction = Nothing
 
-        Dim EvaluationTrials = DirectCast(CurrentTestTrial, SipTrial).ParentTestUnit.ObservedTrials
+        Dim CurrentSipTrials = DirectCast(CurrentTestTrial, SipTrial).ParentTestUnit.ObservedTrials
+
+        Dim EvaluationTrials As New TestTrialCollection
+        For Each Trial In CurrentSipTrials
+            EvaluationTrials.Add(Trial)
+        Next
 
         If EvaluationTrials.Count < BallparkLength Then
 
             'We are in the ballpark stage of this test unit
             ProtocolReply = New TestProtocol.NextTaskInstruction()
+            ProtocolReply.Decision = SpeechTestReplies.GotoNextTrial
 
             If EvaluationTrials.Count = 0 Then
                 'We get the start level
@@ -447,14 +461,22 @@ Public Class AdaptiveSip_TsfcStudy
                 ProtocolReply.AdaptiveStepSize = BallparkStepSize
             Else
 
-                If EvaluationTrials.Last.IsTSFC = True Then
+                If EvaluationTrials.Last.IsTSFCTrial = True Then
 
-                    'Implement TSFC logic for the ballpark stage
+                    'Implementing- the TSFC logic for the ballpark stage
+                    'Determining step size
+                    Dim StepSize As Double = BallparkStepSize * (3 * EvaluationTrials.Last.GradedResponse - 1) / 2 - (BallparkStepSize / 2)
+
+                    'Storing the step size
+                    ProtocolReply.AdaptiveStepSize = StepSize
+
+                    'Calculating the new level
+                    ProtocolReply.AdaptiveValue = DirectCast(EvaluationTrials.Last, SipTrial).PNR + ProtocolReply.AdaptiveStepSize
 
                 Else
 
                     'Setting Adaptive level based on the observed binary responses in the ballpark stage of this test word group / TestUnit
-                    Dim LastTrial = EvaluationTrials.Last
+                    Dim LastTrial As SipTrial = EvaluationTrials.Last
                     ProtocolReply.AdaptiveStepSize = BallparkStepSize
 
                     If LastTrial.IsCorrect = True Then
@@ -465,33 +487,32 @@ Public Class AdaptiveSip_TsfcStudy
 
                 End If
             End If
+
         Else
             'We are in the test stage of this test unit
 
             'Using the selected test protocol
             'Determining if the level should be update. 
-            If (EvaluationTrials.Count - (BallparkLength + 3)) Mod 3 = 0 Then
+            If EvaluationTrials.Count > BallparkLength And (EvaluationTrials.Count - (BallparkLength + 3)) Mod 3 = 0 Then
 
                 'Getting the last three trials that occur at an update point after the 7th trial (i.e. the ballpark stage of 4 trials and the first test stage of 3 trials
                 EvaluationTrials = EvaluationTrials.GetRange(EvaluationTrials.Count - 4, 3)
 
                 'Setting EvaluationTrialCount so that EvaluationTrials.GetObservedScore returns the average of the three last trials in the test unti
-                'TODO, does this need to be done also with non TSFC trials?
                 EvaluationTrials.EvaluationTrialCount = 3
-
                 ProtocolReply = TestProtocol.NewResponse(EvaluationTrials)
 
             Else
                 'Simply reusing the level from the previous trial
-                ProtocolReply.AdaptiveValue = EvaluationTrials.Last.PNR
+                ProtocolReply = New TestProtocol.NextTaskInstruction()
+                ProtocolReply.Decision = SpeechTestReplies.GotoNextTrial
+                ProtocolReply.AdaptiveValue = DirectCast(EvaluationTrials.Last, SipTrial).PNR
+                ProtocolReply.AdaptiveStepSize = 0
             End If
-
-
         End If
 
-
-
-
+        'Clamping the
+        ProtocolReply.AdaptiveValue = Math.Clamp(ProtocolReply.AdaptiveValue.Value, MinPNR, MaxPNR)
 
         'Preparing next trial if needed
         If ProtocolReply.Decision = SpeechTestReplies.GotoNextTrial Then
@@ -504,8 +525,6 @@ Public Class AdaptiveSip_TsfcStudy
 
 
     Protected Overrides Sub PrepareNextTrial(ByVal NextTaskInstruction As TestProtocol.NextTaskInstruction)
-
-
 
 
         CurrentTestTrial.TestStage = NextTaskInstruction.TestStage
@@ -658,9 +677,9 @@ Public Class AdaptiveSip_TsfcStudy
         Return New List(Of String)
     End Function
 
-    Public Overrides Function GetSubGroupResults() As List(Of Tuple(Of, String, Double))
+    Public Overrides Function GetSubGroupResults() As List(Of Tuple(Of String, Double))
 
-        Return New List(Of Tuple(Of , String, Double))
+        Return New List(Of Tuple(Of String, Double))
         'Throw New NotImplementedException()
     End Function
 End Class
