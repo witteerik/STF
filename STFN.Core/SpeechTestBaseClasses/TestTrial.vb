@@ -19,6 +19,43 @@ Public Class TestTrialCollection
         Me.AddRange(TempList)
     End Sub
 
+    ''' <summary>
+    ''' Can be used to extend the number of trials - from the end of the TestTrialCollection, that gets included when calculating observed score using GetObserved Score
+    ''' </summary>
+    ''' <returns></returns>
+    Public Property EvaluationTrialCount As Integer = 1
+
+    ''' <summary>
+    ''' Returns the observed scores for the last MaxTrialCount trials stored in the current instance of TestTrialCollection
+    ''' </summary>
+    ''' <param name="MaxTrialCount"></param>
+    ''' <returns></returns>
+    Public Function GetObservedScore() As Decimal
+
+        'Returns zero if no trials exists
+        If Me.Count = 0 Then Return 0
+
+        'Also returns zero if MaxTrialCount is zero
+        If EvaluationTrialCount = 0 Then Return 0
+
+        'Creating a list for averaging scores
+        Dim AveragingList As New List(Of Decimal)
+
+        Dim StartIndex As Integer = Math.Clamp(Me.Count - EvaluationTrialCount - 1, 0, Me.Count - 1)
+        Dim StopIndex As Integer = Me.Count - 1
+
+        For i = StartIndex To StopIndex
+            If Me(i).IsTSFCTrial = False Then
+                AveragingList.Add(Me(i).GetProportionTasksCorrect)
+            Else
+                AveragingList.Add(Me(i).GradedResponse)
+            End If
+        Next
+
+        Return AveragingList.Average
+
+    End Function
+
 End Class
 
 Public Class TestTrial
@@ -207,6 +244,11 @@ Public Class TestTrial
         End Get
     End Property
 
+    ''' <summary>
+    ''' Holds the value of a graded test trial response / result (i.e. not a binary result)
+    ''' </summary>
+    ''' <returns></returns>
+    Public Property GradedResponse As Double
 
     ''' <summary>
     ''' A matrix holding response alternatives in lists. While a test item with a single set of response alternatives (one dimension) should only use one list, while matrix tests should use several lists.
@@ -282,10 +324,16 @@ Public Class TestTrial
     Public Property MaximumResponseTime As Double
 
     ''' <summary>
-    ''' Should hol information whether the current trial is a practise trial or not
+    ''' Should hold information whether the current trial is a practise trial or not
     ''' </summary>
     ''' <returns></returns>
     Public Property IsPractiseTrial As Boolean
+
+    ''' <summary>
+    ''' Should hold information whether the current trial is a TSFC (Triangular Space Forced Choise) trial or not
+    ''' </summary>
+    ''' <returns></returns>
+    Public Property IsTSFCTrial As Boolean
 
     Public ReadOnly Property GetTimedEventsString() As String
         Get

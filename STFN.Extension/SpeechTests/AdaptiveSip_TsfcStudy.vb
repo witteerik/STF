@@ -18,6 +18,12 @@ Public Class AdaptiveSip_TsfcStudy
     Private BallparkLength As Integer = 4
     Private TestSectionTripletCount As Integer = 40
 
+    Private StartAdaptiveLevel As Double = 0
+    Private BallparkStepSize As Double = 5
+
+    'Private IsTSFC As Boolean = False
+
+
     'Setting the sound source locations
     Private SipTargetStimulusLocations As SoundSourceLocation() = {New SoundSourceLocation With {.HorizontalAzimuth = 0, .Distance = 1.45}}
     Private SipMaskerLocations As SoundSourceLocation() = {
@@ -119,8 +125,10 @@ Public Class AdaptiveSip_TsfcStudy
             Return New Tuple(Of Boolean, String)(False, "The measurement requires a directional simulation set to be selected!")
         End If
 
-        'Setting test protocol
+        'Setting test protocol, including estimated slope and target score
         TestProtocol = New STFN.Core.BrandKollmeier2002_TestProtocol
+        DirectCast(TestProtocol, BrandKollmeier2002_TestProtocol).Slope = 0.034 'TODO: Check this value
+        DirectCast(TestProtocol, BrandKollmeier2002_TestProtocol).TargetScore = 2 / 3
 
         Return New Tuple(Of Boolean, String)(True, "")
 
@@ -414,15 +422,76 @@ Public Class AdaptiveSip_TsfcStudy
 
         'TODO: We must store the responses and response times!!!
 
-        'Calculating the speech level
-        Dim EvaluationTrials = CurrentSipTestMeasurement.ObservedTrials
-        'TODO: This needs to be modified
-        Dim ProtocolReply = TestProtocol.NewResponse(EvaluationTrials)
+        'Preparing the next trial
+        CurrentTestTrial = CurrentSipTestMeasurement.GetNextTrial()
 
-        If CurrentSipTestMeasurement.PlannedTrials.Count = 0 Then
+        'Returning if no more trials are prepared
+        If CurrentTestTrial Is Nothing Then
             'Test is completed
             Return SpeechTestReplies.TestIsCompleted
         End If
+
+        'Calculating the speech level
+        Dim ProtocolReply As TestProtocol.NextTaskInstruction = Nothing
+
+        Dim EvaluationTrials = DirectCast(CurrentTestTrial, SipTrial).ParentTestUnit.ObservedTrials
+
+        If EvaluationTrials.Count < BallparkLength Then
+
+            'We are in the ballpark stage of this test unit
+            ProtocolReply = New TestProtocol.NextTaskInstruction()
+
+            If EvaluationTrials.Count = 0 Then
+                'We get the start level
+                ProtocolReply.AdaptiveValue = StartAdaptiveLevel
+                ProtocolReply.AdaptiveStepSize = BallparkStepSize
+            Else
+
+                If EvaluationTrials.Last.IsTSFC = True Then
+
+                    'Implement TSFC logic for the ballpark stage
+
+                Else
+
+                    'Setting Adaptive level based on the observed binary responses in the ballpark stage of this test word group / TestUnit
+                    Dim LastTrial = EvaluationTrials.Last
+                    ProtocolReply.AdaptiveStepSize = BallparkStepSize
+
+                    If LastTrial.IsCorrect = True Then
+                        ProtocolReply.AdaptiveValue = LastTrial.PNR - ProtocolReply.AdaptiveStepSize
+                    Else
+                        ProtocolReply.AdaptiveValue = LastTrial.PNR + ProtocolReply.AdaptiveStepSize
+                    End If
+
+                End If
+            End If
+        Else
+            'We are in the test stage of this test unit
+
+            'Using the selected test protocol
+            'Determining if the level should be update. 
+            If (EvaluationTrials.Count - (BallparkLength + 3)) Mod 3 = 0 Then
+
+                'Getting the last three trials that occur at an update point after the 7th trial (i.e. the ballpark stage of 4 trials and the first test stage of 3 trials
+                EvaluationTrials = EvaluationTrials.GetRange(EvaluationTrials.Count - 4, 3)
+
+                'Setting EvaluationTrialCount so that EvaluationTrials.GetObservedScore returns the average of the three last trials in the test unti
+                'TODO, does this need to be done also with non TSFC trials?
+                EvaluationTrials.EvaluationTrialCount = 3
+
+                ProtocolReply = TestProtocol.NewResponse(EvaluationTrials)
+
+            Else
+                'Simply reusing the level from the previous trial
+                ProtocolReply.AdaptiveValue = EvaluationTrials.Last.PNR
+            End If
+
+
+        End If
+
+
+
+
 
         'Preparing next trial if needed
         If ProtocolReply.Decision = SpeechTestReplies.GotoNextTrial Then
@@ -436,8 +505,9 @@ Public Class AdaptiveSip_TsfcStudy
 
     Protected Overrides Sub PrepareNextTrial(ByVal NextTaskInstruction As TestProtocol.NextTaskInstruction)
 
-        'Preparing the next trial
-        CurrentTestTrial = CurrentSipTestMeasurement.GetNextTrial()
+
+
+
         CurrentTestTrial.TestStage = NextTaskInstruction.TestStage
 
         'Setting levels of the SiP trial
@@ -588,7 +658,9 @@ Public Class AdaptiveSip_TsfcStudy
         Return New List(Of String)
     End Function
 
-    Public Overrides Function GetSubGroupResults() As List(Of Tuple(Of String, Double))
-        Throw New NotImplementedException()
+    Public Overrides Function GetSubGroupResults() As List(Of Tuple(Of, String, Double))
+
+        Return New List(Of Tuple(Of , String, Double))
+        'Throw New NotImplementedException()
     End Function
 End Class

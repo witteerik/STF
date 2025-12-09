@@ -91,7 +91,7 @@ Public Class SrtChaiklinFontDixon1967_TestProtocol
         End If
 
         'Corrects the last given response
-        If TrialHistory.Last.GetProportionTasksCorrect > 0 Then
+        If TrialHistory.GetObservedScore() > 0 Then
             TrialHistory.Last.IsCorrect = True
         Else
             TrialHistory.Last.IsCorrect = False

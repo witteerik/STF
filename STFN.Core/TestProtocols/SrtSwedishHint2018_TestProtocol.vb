@@ -77,7 +77,7 @@ Public Class SrtSwedishHint2018_TestProtocol
                 .Decision = SpeechTest.SpeechTestReplies.GotoNextTrial}
         End If
 
-        Dim ProportionTasksCorrect = TrialHistory.Last.GetProportionTasksCorrect
+        Dim ProportionTasksCorrect = TrialHistory.GetObservedScore()
 
         'Determines adaptive change
         If ProportionTasksCorrect = 1 Then

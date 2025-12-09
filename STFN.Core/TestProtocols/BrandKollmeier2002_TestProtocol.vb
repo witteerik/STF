@@ -103,7 +103,7 @@ Public Class BrandKollmeier2002_TestProtocol
         'Calculates f(i)
         Dim fi As Double = Math.Max(0.1, 1.5 * 1.41 ^ (-ReversalCount))
         'Calculates the 'prev' (proportion correct taks in the previous trial)
-        Dim LastTrial_ProportionTasksCorrect As Double = TrialHistory.Last.GetProportionTasksCorrect
+        Dim LastTrial_ProportionTasksCorrect As Double = TrialHistory.GetObservedScore()
         'Calculated the stepsize, DeltaL 
         Dim DeltaL As Double = -(fi * (LastTrial_ProportionTasksCorrect - TargetScore)) / Slope ' N.B. TargetScore is the 'tar' variable in Brand and Kollmeier 2002, indicating the target percentage correct
 

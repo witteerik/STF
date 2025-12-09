@@ -84,7 +84,7 @@ Public Class SrtIso8253_TestProtocol
             Return New NextTaskInstruction With {.AdaptiveValue = NextAdaptiveLevel, .TestStage = CurrentTestStage, .Decision = SpeechTest.SpeechTestReplies.GotoNextTrial}
         End If
 
-        Dim ProportionTasksCorrect = TrialHistory.Last.GetProportionTasksCorrect
+        Dim ProportionTasksCorrect = TrialHistory.GetObservedScore()
 
         If CurrentTestStage = 0 Then
 

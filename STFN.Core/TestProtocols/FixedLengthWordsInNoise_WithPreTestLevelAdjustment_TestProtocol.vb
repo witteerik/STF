@@ -107,15 +107,23 @@ Public Class FixedLengthWordsInNoise_WithPreTestLevelAdjustment_TestProtocol
 
     Private Sub FinalizeProtocol(ByRef TrialHistory As TestTrialCollection)
 
-        Dim ScoreList As New List(Of Double)
-        For Each Trial In TrialHistory
-            ScoreList.Add(Trial.GetProportionTasksCorrect)
-        Next
-        If ScoreList.Count > 0 Then
-            FinalWordRecognition = ScoreList.Average
-        Else
+        'Updated 2025-12-09
+        If TrialHistory.Count = 0 Then
             FinalWordRecognition = Double.NaN
+        Else
+            FinalWordRecognition = TrialHistory.GetObservedScore()
         End If
+
+
+        'Dim ScoreList As New List(Of Double)
+        'For Each Trial In TrialHistory
+        '    ScoreList.Add(Trial.GetProportionTasksCorrect)
+        'Next
+        'If ScoreList.Count > 0 Then
+        '    FinalWordRecognition = ScoreList.Average
+        'Else
+        '    FinalWordRecognition = Double.NaN
+        'End If
 
     End Sub
 
