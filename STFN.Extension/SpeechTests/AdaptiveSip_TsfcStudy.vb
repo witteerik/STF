@@ -24,8 +24,10 @@ Public Class AdaptiveSip_TsfcStudy
     Private MinPNR As Double = -10
     Private MaxPNR As Double = 15
 
+    Private TestProtocols As Dictionary(Of String, TestProtocol)
 
-    'Private IsTSFC As Boolean = False
+
+    Public IsTSFC As Boolean = False
 
 
     'Setting the sound source locations
@@ -129,15 +131,6 @@ Public Class AdaptiveSip_TsfcStudy
             Return New Tuple(Of Boolean, String)(False, "The measurement requires a directional simulation set to be selected!")
         End If
 
-        'Setting test protocol, including estimated slope and target score
-        TestProtocol = New STFN.Core.BrandKollmeier2002_TestProtocol
-        DirectCast(TestProtocol, BrandKollmeier2002_TestProtocol).Slope = 0.034 'TODO: Check this value
-        DirectCast(TestProtocol, BrandKollmeier2002_TestProtocol).TargetScore = 2 / 3
-        DirectCast(TestProtocol, BrandKollmeier2002_TestProtocol).EnsureSentenceTest = False
-
-        'TODO: each test unit needs its own TestProtocol!
-        TestProtocol.InitializeProtocol(New TestProtocol.NextTaskInstruction With {.AdaptiveValue = 0, .TestLength = CurrentSipTestMeasurement.TestUnits(0).PlannedTrials.Count - BallparkLength})
-
         Return New Tuple(Of Boolean, String)(True, "")
 
     End Function
@@ -208,6 +201,9 @@ Public Class AdaptiveSip_TsfcStudy
 
     Private Sub PlanSiPTrials(ByVal SoundPropagationType As SoundPropagationTypes, Optional ByVal RandomSeed As Integer? = Nothing)
 
+        TestProtocols = New Dictionary(Of String, TestProtocol)
+
+
         Dim AllMediaSets As List(Of MediaSet) = AvailableMediasets
 
         Dim SelectedMediaSets As New List(Of MediaSet)
@@ -246,6 +242,9 @@ Public Class AdaptiveSip_TsfcStudy
                 Dim NewTestTrial As New SipTrial(NewTestUnit, TestWords(RandomIndex), SelectedMediaSets.First, SoundPropagationType,
                                                  SipTargetStimulusLocations, SipMaskerLocations, SipBackgroundLocations, CurrentSipTestMeasurement.Randomizer)
 
+                'Storing IsTSFC in every trial
+                NewTestTrial.IsTSFCTrial = IsTSFC
+
                 'Adding the trial
                 NewTestUnit.PlannedTrials.Add(NewTestTrial)
 
@@ -263,6 +262,9 @@ Public Class AdaptiveSip_TsfcStudy
                     Dim NewTestTrial As New SipTrial(NewTestUnit, TestWords(RandomIndex), SelectedMediaSets.First, SoundPropagationType,
                                                  SipTargetStimulusLocations, SipMaskerLocations, SipBackgroundLocations, CurrentSipTestMeasurement.Randomizer)
 
+                    'Storing IsTSFC in every trial
+                    NewTestTrial.IsTSFCTrial = IsTSFC
+
                     'Adding the trial
                     NewTestUnit.PlannedTrials.Add(NewTestTrial)
 
@@ -271,6 +273,14 @@ Public Class AdaptiveSip_TsfcStudy
 
             'Adding the test unit
             CurrentSipTestMeasurement.TestUnits.Add(NewTestUnit)
+
+            'Also creating test protocols
+            'Setting test protocol, including estimated slope and target score
+            Dim NewTestProtocol = New STFN.Core.BrandKollmeier2002_TestProtocol
+            NewTestProtocol.Slope = 0.034 'TODO: Check this value
+            NewTestProtocol.TargetScore = 2 / 3
+            NewTestProtocol.EnsureSentenceTest = False
+            TestProtocols.Add(TWG.PrimaryStringRepresentation, NewTestProtocol)
 
         Next
 
@@ -385,34 +395,56 @@ Public Class AdaptiveSip_TsfcStudy
 
             'This is an incoming test trial response
 
-            'Corrects the trial response, based on the given response
+            If CurrentTestTrial.IsTSFCTrial = False Then
 
-            'Resets the CurrentTestTrial.ScoreList
-            'And also storing SiP-test type data
-            CurrentTestTrial.ScoreList = New List(Of Integer)
-            Select Case e.LinguisticResponses(0)
-                Case CurrentTestTrial.SpeechMaterialComponent.GetCategoricalVariableValue("Spelling")
-                    CurrentTestTrial.ScoreList.Add(1)
-                    DirectCast(CurrentTestTrial, SipTrial).Result = SipTrial.PossibleResults.Correct
-                    CurrentTestTrial.IsCorrect = True
+                'Corrects the trial response, based on the given response
 
-                Case ""
-                    CurrentTestTrial.ScoreList.Add(0)
-                    DirectCast(CurrentTestTrial, SipTrial).Result = SipTrial.PossibleResults.Missing
+                'Resets the CurrentTestTrial.ScoreList
+                'And also storing SiP-test type data
+                CurrentTestTrial.ScoreList = New List(Of Integer)
+                Select Case e.LinguisticResponses(0)
+                    Case CurrentTestTrial.SpeechMaterialComponent.GetCategoricalVariableValue("Spelling")
+                        CurrentTestTrial.ScoreList.Add(1)
+                        DirectCast(CurrentTestTrial, SipTrial).Result = SipTrial.PossibleResults.Correct
+                        CurrentTestTrial.IsCorrect = True
 
-                    'Randomizing IsCorrect with a 1/3 chance for True
-                    Dim ChanceList As New List(Of Boolean) From {True, False, False}
-                    Dim RandomIndex As Integer = Randomizer.Next(ChanceList.Count)
-                    CurrentTestTrial.IsCorrect = ChanceList(RandomIndex)
+                    Case ""
+                        CurrentTestTrial.ScoreList.Add(0)
+                        DirectCast(CurrentTestTrial, SipTrial).Result = SipTrial.PossibleResults.Missing
 
-                Case Else
-                    CurrentTestTrial.ScoreList.Add(0)
-                    DirectCast(CurrentTestTrial, SipTrial).Result = SipTrial.PossibleResults.Incorrect
-                    CurrentTestTrial.IsCorrect = False
+                        'Randomizing IsCorrect with a 1/3 chance for True
+                        Dim ChanceList As New List(Of Boolean) From {True, False, False}
+                        Dim RandomIndex As Integer = Randomizer.Next(ChanceList.Count)
+                        CurrentTestTrial.IsCorrect = ChanceList(RandomIndex)
 
-            End Select
+                    Case Else
+                        CurrentTestTrial.ScoreList.Add(0)
+                        DirectCast(CurrentTestTrial, SipTrial).Result = SipTrial.PossibleResults.Incorrect
+                        CurrentTestTrial.IsCorrect = False
 
-            DirectCast(CurrentTestTrial, SipTrial).Response = e.LinguisticResponses(0)
+                End Select
+
+                DirectCast(CurrentTestTrial, SipTrial).Response = e.LinguisticResponses(0)
+
+            Else
+
+                Dim ResponseList = TryCast(e.Box, SortedList(Of String, Double))
+                If ResponseList IsNot Nothing Then
+                    ' Use responseList here
+
+                    'Getting the coordinate for the correct test word
+                    For Each ResponseCandidate In ResponseList
+                        Dim CorrectResponse = CurrentTestTrial.SpeechMaterialComponent.GetCategoricalVariableValue("Spelling")
+                        If CorrectResponse = ResponseCandidate.Key Then
+                            CurrentTestTrial.GradedResponse = ResponseCandidate.Value
+                            Exit For
+                        End If
+                    Next
+
+                Else
+                    Throw New Exception("This is a bug!")
+                End If
+            End If
 
             'Moving to trial history
             CurrentSipTestMeasurement.MoveTrialToHistory(CurrentTestTrial)
@@ -491,6 +523,13 @@ Public Class AdaptiveSip_TsfcStudy
         Else
             'We are in the test stage of this test unit
 
+            'Getting the initial adaptive level from the ballpark stage, and initializing the test protocol
+            If EvaluationTrials.Count = BallparkLength Then
+                Dim StartLevel As Double = DirectCast(EvaluationTrials.Last, SipTrial).PNR
+                TestProtocols(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation).InitializeProtocol(
+                New TestProtocol.NextTaskInstruction With {.AdaptiveValue = StartLevel, .TestLength = DirectCast(EvaluationTrials.Last, SipTrial).ParentTestUnit.PlannedTrials.Count - BallparkLength})
+            End If
+
             'Using the selected test protocol
             'Determining if the level should be update. 
             If EvaluationTrials.Count > BallparkLength And (EvaluationTrials.Count - (BallparkLength + 3)) Mod 3 = 0 Then
@@ -500,7 +539,7 @@ Public Class AdaptiveSip_TsfcStudy
 
                 'Setting EvaluationTrialCount so that EvaluationTrials.GetObservedScore returns the average of the three last trials in the test unti
                 EvaluationTrials.EvaluationTrialCount = 3
-                ProtocolReply = TestProtocol.NewResponse(EvaluationTrials)
+                ProtocolReply = TestProtocols(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation).NewResponse(EvaluationTrials)
 
             Else
                 'Simply reusing the level from the previous trial

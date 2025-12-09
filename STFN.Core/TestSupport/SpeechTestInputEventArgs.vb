@@ -17,6 +17,8 @@ Public Class SpeechTestInputEventArgs
 
     Public Property DirectionResponseTime As DateTime
 
+    Public Property Box As Object
+
 End Class
 
 

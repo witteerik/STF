@@ -12,6 +12,8 @@ public class TSFC_Triangle : IDrawable
 
     private SizeF viewportSize = new(1, 1);
 
+    public List<double> PointLocations = new List<double> { 0, 0, 0 };
+
     public SizeF ViewportSize
     {
         get { return viewportSize; }
@@ -262,6 +264,11 @@ public class TSFC_Triangle : IDrawable
 
         // Updating the barycentric coordinates
         var (u, v, w) = GetBarycentricCoordinates(circleLocation, VisibleTriangleVertex_TopLeft, VisibleTriangleVertex_TopRight, VisibleTriangleVertex_BottomMid);
+
+        // Storing these in the TSFC_Triangle output
+        PointLocations[0] = u;
+        PointLocations[1] = v;
+        PointLocations[2] = w;
 
         // Drawing the circle
         if (circleIsVisible)

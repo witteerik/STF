@@ -5,9 +5,9 @@
 // Copyright (c) 2025 Erik Witte
 
 
-using STFN.Core;
-using STFM.Views;
 using STFM.Extension.Views;
+using STFM.Views;
+using STFN.Core;
 
 namespace STFM.Extension
 {
@@ -119,6 +119,9 @@ namespace STFM.Extension
                     speechTestInitiator.SpeechTest = new STFN.Extension.AdaptiveSip_TsfcStudy(speechTestInitiator.SelectedSpeechMaterialName);
                     SharedSpeechTestObjects.CurrentSpeechTest = speechTestInitiator.SpeechTest;
 
+                    // Setting IsTSFC to true
+                    ((STFN.Extension.AdaptiveSip_TsfcStudy)SharedSpeechTestObjects.CurrentSpeechTest).IsTSFC = true;
+
                     // Creating a test options view
                     speechTestInitiator.TestOptionsView = new OptionsViewAll(speechTestInitiator.SpeechTest);
 
@@ -159,6 +162,9 @@ namespace STFM.Extension
                     // Creating the speech test instance, and also stores it in SharedSpeechTestObjects
                     speechTestInitiator.SpeechTest = new STFN.Extension.AdaptiveSip_TsfcStudy(speechTestInitiator.SelectedSpeechMaterialName);
                     SharedSpeechTestObjects.CurrentSpeechTest = speechTestInitiator.SpeechTest;
+
+                    // Setting IsTSFC to false
+                    ((STFN.Extension.AdaptiveSip_TsfcStudy)SharedSpeechTestObjects.CurrentSpeechTest).IsTSFC = false;
 
                     // Creating a test options view
                     speechTestInitiator.TestOptionsView = new OptionsViewAll(speechTestInitiator.SpeechTest);

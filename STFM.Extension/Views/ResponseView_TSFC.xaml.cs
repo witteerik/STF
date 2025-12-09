@@ -132,9 +132,39 @@ public partial class ResponseView_TSFC : ResponseView
     private void OnButtonClicked(object sender, EventArgs e)
     {
 
-        // Test response should be initiated from here
+        // Initiating test response 
+
+        // Getting the coordinates
+        ReportResult();
 
     }
+
+    private void ReportResult()
+    {
+        // Getting the barycentric coordinates of the point in relatino to all response alternatives
+        SortedList<string, double> responseBox = new SortedList<string, double>();
+        if (CurrentTSFC_Triangle != null)
+        {
+            responseBox.Add(TestWordLabel_Left.Text, CurrentTSFC_Triangle.PointLocations[0]);
+            responseBox.Add(TestWordLabel_Right.Text, CurrentTSFC_Triangle.PointLocations[1]);
+            responseBox.Add(TestWordLabel_Bottom.Text, CurrentTSFC_Triangle.PointLocations[2]);
+        }
+
+        // Storing the raw response
+        SpeechTestInputEventArgs args = new SpeechTestInputEventArgs();
+        args.LinguisticResponseTime = DateTime.Now;
+
+        args.Box = responseBox;
+
+        // Raising the ResponseGiven event in the base class.
+        // Note that this is done on a background thread that returns to the main thread after a short delay to allow the GUI to be updated.
+        OnResponseGiven(args);
+
+
+        //HideAllTimer.Start();
+
+    }
+
 
 
     public override void AddSourceAlternatives(VisualizedSoundSource[] soundSources)
