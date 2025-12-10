@@ -325,4 +325,36 @@ public class TSFC_Triangle : IDrawable
         return (u, v, w);
     }
 
+    public void ResetPointToCenter()
+    {
+        // Make sure triangle geometry is up to date
+        UpdateTriangularVertices();
+
+        // Compute centroid (barycentric 1/3, 1/3, 1/3)
+        float centerX =
+            (VisibleTriangleVertex_TopLeft.X +
+             VisibleTriangleVertex_TopRight.X +
+             VisibleTriangleVertex_BottomMid.X) / 3f;
+
+        float centerY =
+            (VisibleTriangleVertex_TopLeft.Y +
+             VisibleTriangleVertex_TopRight.Y +
+             VisibleTriangleVertex_BottomMid.Y) / 3f;
+
+        // Set circle location directly (bypasses clamping logic safely since it's guaranteed inside)
+        circleLocation = new PointF(centerX, centerY);
+
+        // Set exact barycentric coordinates
+        PointLocations[0] = 1.0 / 3.0;
+        PointLocations[1] = 1.0 / 3.0;
+        PointLocations[2] = 1.0 / 3.0;
+
+        // Ensure visibility
+        CircleIsVisible = true;
+
+        // Force redraw
+        parentView?.Invalidate();
+    }
+
+
 }

@@ -41,7 +41,7 @@ Public Class TestTrialCollection
         'Creating a list for averaging scores
         Dim AveragingList As New List(Of Decimal)
 
-        Dim StartIndex As Integer = Math.Clamp(Me.Count - EvaluationTrialCount - 1, 0, Me.Count - 1)
+        Dim StartIndex As Integer = Math.Clamp(Me.Count - EvaluationTrialCount, 0, Me.Count - 1)
         Dim StopIndex As Integer = Me.Count - 1
 
         For i = StartIndex To StopIndex

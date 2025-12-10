@@ -15,6 +15,9 @@ public partial class ResponseView_TSFC : ResponseView
 
     TSFC_Triangle CurrentTSFC_Triangle = null;
 
+    private IDispatcherTimer HideAllTimer;
+
+
     bool isPressed = false;
     public ResponseView_TSFC()
 	{
@@ -40,6 +43,12 @@ public partial class ResponseView_TSFC : ResponseView
 
         // Setting unpressed button colors
         SetPressedState(false);
+
+        // Creating a hide-all timer
+        HideAllTimer = Microsoft.Maui.Controls.Application.Current.Dispatcher.CreateTimer();
+        HideAllTimer.Interval = TimeSpan.FromMilliseconds(300);
+        HideAllTimer.Tick += ClearLayout;
+        HideAllTimer.IsRepeating = false;
 
     }
 
@@ -139,32 +148,55 @@ public partial class ResponseView_TSFC : ResponseView
 
     }
 
-    private void ReportResult()
+    private readonly SemaphoreSlim _reportResultLock = new SemaphoreSlim(1, 1);
+    private bool responseIsGiven = false;
+
+    private async void ReportResult()
     {
-        // Getting the barycentric coordinates of the point in relatino to all response alternatives
-        SortedList<string, double> responseBox = new SortedList<string, double>();
-        if (CurrentTSFC_Triangle != null)
+        // Prevent double-entry
+        if (!await _reportResultLock.WaitAsync(0))
+            return;
+
+        try
         {
-            responseBox.Add(TestWordLabel_Left.Text, CurrentTSFC_Triangle.PointLocations[0]);
-            responseBox.Add(TestWordLabel_Right.Text, CurrentTSFC_Triangle.PointLocations[1]);
-            responseBox.Add(TestWordLabel_Bottom.Text, CurrentTSFC_Triangle.PointLocations[2]);
+
+            // Returns is a response has already been given 
+            if (responseIsGiven) {return; }
+            responseIsGiven = true;
+
+            // Disable response buttons
+            LeftButton.IsEnabled = false;
+            RightButton.IsEnabled = false;
+
+            // Getting the barycentric coordinates of the point in relation to all response alternatives
+            SortedList<string, double> responseBox = new SortedList<string, double>();
+
+            if (CurrentTSFC_Triangle != null)
+            {
+                responseBox.Add(TestWordLabel_Left.Text, CurrentTSFC_Triangle.PointLocations[0]);
+                responseBox.Add(TestWordLabel_Right.Text, CurrentTSFC_Triangle.PointLocations[1]);
+                responseBox.Add(TestWordLabel_Bottom.Text, CurrentTSFC_Triangle.PointLocations[2]);
+            }
+
+            // Storing the raw response
+            SpeechTestInputEventArgs args = new SpeechTestInputEventArgs
+            {
+                LinguisticResponseTime = DateTime.Now,
+                Box = responseBox
+            };
+
+            // Raise the response event
+            OnResponseGiven(args);
+
+            // Clear UI
+            ClearLayout();
         }
-
-        // Storing the raw response
-        SpeechTestInputEventArgs args = new SpeechTestInputEventArgs();
-        args.LinguisticResponseTime = DateTime.Now;
-
-        args.Box = responseBox;
-
-        // Raising the ResponseGiven event in the base class.
-        // Note that this is done on a background thread that returns to the main thread after a short delay to allow the GUI to be updated.
-        OnResponseGiven(args);
-
-
-        //HideAllTimer.Start();
-
+        finally
+        {
+            // Always release lock
+            _reportResultLock.Release();
+        }
     }
-
 
 
     public override void AddSourceAlternatives(VisualizedSoundSource[] soundSources)
@@ -172,10 +204,6 @@ public partial class ResponseView_TSFC : ResponseView
         //throw new NotImplementedException();
     }
 
-    public override void HideAllItems()
-    {
-        // throw new NotImplementedException();
-    }
 
     public override void HideVisualCue()
     {
@@ -184,8 +212,11 @@ public partial class ResponseView_TSFC : ResponseView
 
     public override void InitializeNewTrial()
     {
-        // throw new NotImplementedException();
+        StopAllTimers();
+        ClearLayout();
     }
+
+
 
     public override void ResponseTimesOut()
     {
@@ -204,7 +235,28 @@ public partial class ResponseView_TSFC : ResponseView
 
     public override void ShowResponseAlternatives(List<List<SpeechTestResponseAlternative>> ResponseAlternatives)
     {
-        //  throw new NotImplementedException();
+
+        if (ResponseAlternatives.Count > 1)
+        {
+            throw new ArgumentException("ShowResponseAlternatives is not yet implemented for multidimensional sets of response alternatives");
+        }
+
+        List<SpeechTestResponseAlternative> localResponseAlternatives = ResponseAlternatives[0];
+
+        TestWordLabel_Left.Text = localResponseAlternatives[0].Spelling;
+        TestWordLabel_Right.Text = localResponseAlternatives[1].Spelling;
+        TestWordLabel_Bottom.Text = localResponseAlternatives[2].Spelling;
+
+        // Reset point to center
+        CurrentTSFC_Triangle.ResetPointToCenter();
+
+        // Resets responseIsGiven 
+        responseIsGiven = false;
+
+        // Enables the response buttons
+        LeftButton.IsEnabled = true;
+        RightButton.IsEnabled = true;
+
     }
 
     public override void ShowVisualCue()
@@ -214,11 +266,46 @@ public partial class ResponseView_TSFC : ResponseView
 
     public override void StopAllTimers()
     {
-        //  throw new NotImplementedException();
+        HideAllTimer.Stop();
     }
 
-    public override void UpdateTestFormProgressbar(int Value, int Maximum, int Minimum)
+    public async override void UpdateTestFormProgressbar(int Value, int Maximum, int Minimum)
     {
-        //  throw new NotImplementedException();
+        if (PtcProgressBar != null)
+        {
+            ProgressFrame.IsVisible = true;
+            double range = Maximum - Minimum;
+            double progressProp = Value / range;
+            await PtcProgressBar.ProgressTo(progressProp, 50, Easing.Linear);
+        }
     }
+
+    private void ClearLayout(object sender, EventArgs e)
+    {
+        ClearLayout();
+    }
+
+    private void ClearLayout()
+    {
+        //Clear things
+        TestWordLabel_Left.Text = "";
+        TestWordLabel_Right.Text = "";
+        TestWordLabel_Bottom.Text = "";
+
+        // Hiding the circle
+        CurrentTSFC_Triangle.CircleIsVisible = false;
+
+    }
+
+    public override void HideAllItems()
+    {
+        ClearLayout();
+
+        LeftButton.IsVisible = false;
+        RightButton.IsVisible = false;
+
+        ProgressFrame.IsVisible = false;
+    }
+
+
 }

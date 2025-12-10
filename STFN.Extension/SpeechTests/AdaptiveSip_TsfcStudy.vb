@@ -436,7 +436,15 @@ Public Class AdaptiveSip_TsfcStudy
                     For Each ResponseCandidate In ResponseList
                         Dim CorrectResponse = CurrentTestTrial.SpeechMaterialComponent.GetCategoricalVariableValue("Spelling")
                         If CorrectResponse = ResponseCandidate.Key Then
-                            CurrentTestTrial.GradedResponse = ResponseCandidate.Value
+
+                            'The incoming coordinate (for the correct response alternative) is here streched linearly from the range 1/3 - 1 to 0 - 1
+                            Dim BarycentricCoordinate As Double = (3 * ResponseCandidate.Value - 1) / 2
+
+                            'And clamped to the range 0 - 1
+                            BarycentricCoordinate = Math.Clamp(BarycentricCoordinate, 0, 1)
+
+                            'And storing it in the trial
+                            CurrentTestTrial.GradedResponse = BarycentricCoordinate
                             Exit For
                         End If
                     Next
@@ -497,7 +505,7 @@ Public Class AdaptiveSip_TsfcStudy
 
                     'Implementing- the TSFC logic for the ballpark stage
                     'Determining step size
-                    Dim StepSize As Double = BallparkStepSize * (3 * EvaluationTrials.Last.GradedResponse - 1) / 2 - (BallparkStepSize / 2)
+                    Dim StepSize As Double = (BallparkStepSize / 2) - BallparkStepSize * (3 * EvaluationTrials.Last.GradedResponse - 1) / 2
 
                     'Storing the step size
                     ProtocolReply.AdaptiveStepSize = StepSize
@@ -535,11 +543,16 @@ Public Class AdaptiveSip_TsfcStudy
             If EvaluationTrials.Count > BallparkLength And (EvaluationTrials.Count - (BallparkLength + 3)) Mod 3 = 0 Then
 
                 'Getting the last three trials that occur at an update point after the 7th trial (i.e. the ballpark stage of 4 trials and the first test stage of 3 trials
-                EvaluationTrials = EvaluationTrials.GetRange(EvaluationTrials.Count - 4, 3)
+                EvaluationTrials = EvaluationTrials.GetRange(BallparkLength, EvaluationTrials.Count - BallparkLength)
 
                 'Setting EvaluationTrialCount so that EvaluationTrials.GetObservedScore returns the average of the three last trials in the test unti
                 EvaluationTrials.EvaluationTrialCount = 3
                 ProtocolReply = TestProtocols(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation).NewResponse(EvaluationTrials)
+
+                If Math.Abs(ProtocolReply.AdaptiveStepSize.Value) < 1 Then
+                    'TODO: this needs to change, to allow for all test units to finish their adaptive respective procedures
+                    Return SpeechTestReplies.TestIsCompleted
+                End If
 
             Else
                 'Simply reusing the level from the previous trial
@@ -570,6 +583,9 @@ Public Class AdaptiveSip_TsfcStudy
 
         'Setting levels of the SiP trial
         DirectCast(CurrentTestTrial, SipTrial).SetLevels(ReferenceLevel, NextTaskInstruction.AdaptiveValue)
+
+        'String the adaptive protocol value in the trial (this is needed in the test protocol class)
+        CurrentTestTrial.AdaptiveProtocolValue = DirectCast(CurrentTestTrial, SipTrial).PNR
 
         CurrentTestTrial.Tasks = 1
         CurrentTestTrial.ResponseAlternativeSpellings = New List(Of List(Of SpeechTestResponseAlternative))
