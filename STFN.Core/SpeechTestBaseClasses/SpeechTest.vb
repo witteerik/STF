@@ -1323,7 +1323,7 @@ Public MustInherit Class SpeechTest
     Private _TestMode As SpeechTest.TestModes
 
 
-    Public Property TestProtocol As TestProtocol
+    Public Overridable Property TestProtocol As TestProtocol
         Get
             Return _TestProtocol
         End Get

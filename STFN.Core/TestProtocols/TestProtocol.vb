@@ -62,6 +62,7 @@ Public MustInherit Class TestProtocol
         ''' </summary>
         Public AdaptiveValue As Double? = Nothing
         Public AdaptiveStepSize As Double? = Nothing
+        Public AdaptiveReversalCount As Integer? = Nothing
         Public TestStage As Integer
         Public TestBlock As Integer
 

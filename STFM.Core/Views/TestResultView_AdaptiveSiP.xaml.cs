@@ -101,6 +101,7 @@ namespace STFM.Views
         {
             // Referencing the SnrDiagram locally
             TestResultsDiagram MySnrDiagram = (TestResultsDiagram)SnrView.Drawable;
+
             TestProtocol testProtocol = speechTest.TestProtocol;
 
             if (speechTest.TestProtocol == null)

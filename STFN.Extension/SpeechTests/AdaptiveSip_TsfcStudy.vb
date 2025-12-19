@@ -21,10 +21,12 @@ Public Class AdaptiveSip_TsfcStudy
     Private StartAdaptiveLevel As Double = 0
     Private BallparkStepSize As Double = 5
 
-    Private MinPNR As Double = -10
+    Private MinPNR As Double = -20
     Private MaxPNR As Double = 15
 
     Private TestProtocols As Dictionary(Of String, TestProtocol)
+    Private AdaptiveLevelHistory As Dictionary(Of String, List(Of Double))
+
 
 
     Public IsTSFC As Boolean = False
@@ -40,6 +42,37 @@ Public Class AdaptiveSip_TsfcStudy
             New SoundSourceLocation With {.HorizontalAzimuth = -60, .Distance = 1.45},
             New SoundSourceLocation With {.HorizontalAzimuth = 150, .Distance = 1.45},
             New SoundSourceLocation With {.HorizontalAzimuth = -150, .Distance = 1.45}}
+
+
+    Public Overrides Property TestProtocol As TestProtocol
+        Get
+            Return GetCurrentTestProtocol()
+        End Get
+        Set(value As TestProtocol)
+            'Ignores any calls here since TestProtocol should never be set
+            Throw New NotImplementedException("Test protocol should not be set in this way is the adaptive TSFC test")
+            OnPropertyChanged()
+        End Set
+    End Property
+
+    Private Function GetCurrentTestProtocol() As TestProtocol
+
+        'Returns Nothing if there is no current trial
+        If CurrentTestTrial Is Nothing Then Return Nothing
+
+        'Try to get the test protocol from the current trial, based on the TWG PrimaryStringRepresentation
+        If TestProtocols Is Nothing Then Return Nothing
+        If TestProtocols.ContainsKey(CurrentTestTrial.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation) = False Then Return Nothing
+
+        'Gets the test protocol
+        Dim CurrentTestProtocol = TestProtocols(CurrentTestTrial.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation)
+
+        'If failed to get the test protocol
+        If CurrentTestProtocol Is Nothing Then Return Nothing
+
+        Return CurrentTestProtocol
+
+    End Function
 
 
     Public Sub New(ByVal SpeechMaterialName As String)
@@ -202,7 +235,7 @@ Public Class AdaptiveSip_TsfcStudy
     Private Sub PlanSiPTrials(ByVal SoundPropagationType As SoundPropagationTypes, Optional ByVal RandomSeed As Integer? = Nothing)
 
         TestProtocols = New Dictionary(Of String, TestProtocol)
-
+        AdaptiveLevelHistory = New Dictionary(Of String, List(Of Double))
 
         Dim AllMediaSets As List(Of MediaSet) = AvailableMediasets
 
@@ -277,10 +310,14 @@ Public Class AdaptiveSip_TsfcStudy
             'Also creating test protocols
             'Setting test protocol, including estimated slope and target score
             Dim NewTestProtocol = New STFN.Core.BrandKollmeier2002_TestProtocol
-            NewTestProtocol.Slope = 0.034 'TODO: Check this value
-            NewTestProtocol.TargetScore = 2 / 3
+            NewTestProtocol.Slope = 0.034
+            'NewTestProtocol.TargetScore = 2 / 3
+            NewTestProtocol.TargetScore = 0.5
             NewTestProtocol.EnsureSentenceTest = False
             TestProtocols.Add(TWG.PrimaryStringRepresentation, NewTestProtocol)
+
+            'Also adds the key to AdaptiveLevelHistory 
+            AdaptiveLevelHistory.Add(TWG.PrimaryStringRepresentation, New List(Of Double))
 
         Next
 
@@ -542,15 +579,38 @@ Public Class AdaptiveSip_TsfcStudy
             'Determining if the level should be update. 
             If EvaluationTrials.Count > BallparkLength And (EvaluationTrials.Count - (BallparkLength + 3)) Mod 3 = 0 Then
 
-                'Getting the last three trials that occur at an update point after the 7th trial (i.e. the ballpark stage of 4 trials and the first test stage of 3 trials
+                'Getting the test stage trials that occur after the ballpark stage
                 EvaluationTrials = EvaluationTrials.GetRange(BallparkLength, EvaluationTrials.Count - BallparkLength)
 
                 'Setting EvaluationTrialCount so that EvaluationTrials.GetObservedScore returns the average of the three last trials in the test unti
                 EvaluationTrials.EvaluationTrialCount = 3
                 ProtocolReply = TestProtocols(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation).NewResponse(EvaluationTrials)
 
-                If Math.Abs(ProtocolReply.AdaptiveStepSize.Value) < 1 Then
-                    'TODO: this needs to change, to allow for all test units to finish their adaptive respective procedures
+                'Adding the adaptive level to the AdaptiveLevelHistory 
+                AdaptiveLevelHistory(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation).Add(ProtocolReply.AdaptiveValue)
+
+                'Stopping after X reversals
+                If Math.Abs(ProtocolReply.AdaptiveReversalCount.Value) > 6 Then
+                    Return SpeechTestReplies.TestIsCompleted
+                End If
+
+                'Or stopping when the adaptive levels plateau
+                Dim AdaptiveLevelStepStoppingCriteriumLength As Integer = 5
+                Dim EvaluationList = AdaptiveLevelHistory(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation)
+                If EvaluationList.Count > AdaptiveLevelStepStoppingCriteriumLength Then
+                    Dim LastLevelSteps = EvaluationList.GetRange(EvaluationList.Count - AdaptiveLevelStepStoppingCriteriumLength, AdaptiveLevelStepStoppingCriteriumLength)
+
+                    'Stopping when the adaptive level range falls under 1 dB  
+                    If Math.Abs(LastLevelSteps.Max - LastLevelSteps.Min) < 1 Then
+
+                        'TODO, this needs to allow for the remaining TWGs to complete. Thus stopping should rather be done in the protocol, and then checked between the protocols
+                        Return SpeechTestReplies.TestIsCompleted
+                    End If
+                End If
+
+                'Or if the trial length limit is reached
+                Dim TrialLengthLimit As Integer = 50
+                If EvaluationTrials.Count > TrialLengthLimit Then
                     Return SpeechTestReplies.TestIsCompleted
                 End If
 
@@ -563,7 +623,7 @@ Public Class AdaptiveSip_TsfcStudy
             End If
         End If
 
-        'Clamping the
+        'Clamping the adaptive value
         ProtocolReply.AdaptiveValue = Math.Clamp(ProtocolReply.AdaptiveValue.Value, MinPNR, MaxPNR)
 
         'Preparing next trial if needed

@@ -126,12 +126,12 @@ Public Class BrandKollmeier2002_TestProtocol
             FinalizeProtocol(TrialHistory)
 
             'Exits the test
-            Return New NextTaskInstruction With {.AdaptiveValue = NextAdaptiveLevel, .AdaptiveStepSize = DeltaL, .Decision = SpeechTest.SpeechTestReplies.TestIsCompleted}
+            Return New NextTaskInstruction With {.AdaptiveValue = NextAdaptiveLevel, .AdaptiveStepSize = DeltaL, .Decision = SpeechTest.SpeechTestReplies.TestIsCompleted, .AdaptiveReversalCount = ReversalCount}
 
         End If
 
         'Continues the test
-        Return New NextTaskInstruction With {.AdaptiveValue = NextAdaptiveLevel, .AdaptiveStepSize = DeltaL, .Decision = SpeechTest.SpeechTestReplies.GotoNextTrial}
+        Return New NextTaskInstruction With {.AdaptiveValue = NextAdaptiveLevel, .AdaptiveStepSize = DeltaL, .Decision = SpeechTest.SpeechTestReplies.GotoNextTrial, .AdaptiveReversalCount = ReversalCount}
 
     End Function
 
