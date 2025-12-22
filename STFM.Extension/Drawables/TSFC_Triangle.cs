@@ -274,10 +274,28 @@ public class TSFC_Triangle : IDrawable
         if (circleIsVisible)
         {
             float CircleShadowRadius = circleRadius / 3;
-            canvas.FillColor = Color.FromArgb("#FFFFAC");
-            canvas.StrokeColor = Colors.Yellow;
+
+            // yellow circle
+            //canvas.FillColor = Color.FromArgb("#FFFFAC");
+            //canvas.StrokeColor = Colors.Yellow;
+            //canvas.SetShadow(new SizeF(0, 0), CircleShadowRadius, Colors.Yellow);
+
+            // Circle with dynamic additive coloring
+            float scaled_u = 1-(float)Math.Clamp((3 * u - 1) / 2, 0, 1);
+            float scaled_v = 1-(float)Math.Clamp((3 * v - 1) / 2, 0, 1);
+            float scaled_w = 1-(float)Math.Clamp((3 * w - 1) / 2, 0, 1);
+
+            //Color circleColor = FromRgbAmounts(scaled_u, scaled_w, scaled_v);
+
+            Color circleColor = TriangleColor((float)u, (float)w, (float)v);
+            
+
+            //Color circleColor = FromRgbAmounts(1-(float)Math.Sqrt(1-u), 1-(float)Math.Sqrt(1-v), 1 - (float)Math.Sqrt(1-w));
+            canvas.FillColor = circleColor;
+            canvas.StrokeColor = circleColor;
+            canvas.SetShadow(new SizeF(0, 0), CircleShadowRadius, circleColor);
+
             canvas.StrokeSize = 2;
-            canvas.SetShadow(new SizeF(0, 0), CircleShadowRadius, Colors.Yellow);
             canvas.FillCircle(circleLocation, circleRadius);
             canvas.DrawCircle(circleLocation, circleRadius);
 
@@ -296,57 +314,101 @@ public class TSFC_Triangle : IDrawable
             canvas.DrawString(u_v_w_string, centerX * 2f - 100, centerY * 2f - 100, 100, 100, HorizontalAlignment.Left, VerticalAlignment.Top, TextFlow.OverflowBounds);
         }
 
-        // Draws a word indicating the level of certainty
-
-        if (circleIsVisible)
+        bool drawCertaintyLabel = false;
+        if (drawCertaintyLabel)
         {
-
-
-            var certaintyLevel = Math.Max(Math.Max(u, v), w);
-
-            canvas.FontSize = circleRadius * 0.5f;
-            string certaintyString = "";
-            switch (certaintyLevel)
+            if (circleIsVisible)
             {
-                case < 0.4:
-                    canvas.FontColor = Colors.Red;
-                    certaintyString = "Ingen aning";
-                    break;
+                // Draws a word indicating the level of certainty
 
-                case < 0.5:
-                    canvas.FontColor = Colors.Orange;
-                    certaintyString = "Mycket osäker";
-                    break;
+                var certaintyLevel = Math.Max(Math.Max(u, v), w);
 
-                case < 0.7:
-                    canvas.FontColor = Colors.Yellow;
-                    certaintyString = "Ganska osäker";
-                    break;
+                canvas.FontSize = circleRadius * 0.5f;
+                string certaintyString = "";
+                switch (certaintyLevel)
+                {
+                    case < 0.4:
+                        canvas.FontColor = Colors.Red;
+                        certaintyString = "Ingen aning";
+                        break;
 
-                case < 0.95:
-                    canvas.FontColor = Colors.GreenYellow;
-                    certaintyString = "Ganska säker";
-                    break;
+                    case < 0.5:
+                        canvas.FontColor = Colors.Orange;
+                        certaintyString = "Mycket osäker";
+                        break;
 
-                default:
-                    canvas.FontColor = Colors.LawnGreen;
-                    certaintyString = "Helt säker";
-                    break;
+                    case < 0.7:
+                        canvas.FontColor = Colors.Yellow;
+                        certaintyString = "Ganska osäker";
+                        break;
+
+                    case < 0.95:
+                        canvas.FontColor = Colors.GreenYellow;
+                        certaintyString = "Ganska säker";
+                        break;
+
+                    default:
+                        canvas.FontColor = Colors.LawnGreen;
+                        certaintyString = "Helt säker";
+                        break;
+
+                }
+
+                canvas.StrokeColor = background;
+                canvas.FillColor = background;
+                RectF certaintyRect = new RectF(circleLocation.X - circleRadius * 2, circleLocation.Y - circleRadius * 1.9f, circleRadius * 4, circleRadius * 0.7f);
+
+                certaintyRect.Y = Math.Max(0, certaintyRect.Y);
+                certaintyRect.X = Math.Max(0, certaintyRect.X);
+                certaintyRect.X = Math.Min(certaintyRect.X, (float)parentView.Width - certaintyRect.Width);
+
+                canvas.FillRoundedRectangle(certaintyRect, 20);
+                canvas.DrawString(certaintyString, certaintyRect, HorizontalAlignment.Center, VerticalAlignment.Top, TextFlow.OverflowBounds);
 
             }
-
-            canvas.StrokeColor = background;
-            canvas.FillColor = background;
-            RectF certaintyRect = new RectF(circleLocation.X - circleRadius * 2, circleLocation.Y - circleRadius * 1.9f, circleRadius * 4, circleRadius * 0.7f);
-
-            certaintyRect.Y = Math.Max(0, certaintyRect.Y);
-            certaintyRect.X = Math.Max(0, certaintyRect.X);
-            certaintyRect.X = Math.Min(certaintyRect.X, (float)parentView.Width - certaintyRect.Width);
-
-            canvas.FillRoundedRectangle(certaintyRect, 20);
-            canvas.DrawString(certaintyString, certaintyRect, HorizontalAlignment.Center, VerticalAlignment.Top, TextFlow.OverflowBounds);
-
         }
+    }
+
+
+    // r,g,b in [0..1] 
+    static Color FromRgbAmounts(float r, float g, float b, float a = 1f)
+    {
+
+        return new Color(
+            Math.Clamp(r, 0f, 1f),
+            Math.Clamp(g, 0f, 1f),
+            Math.Clamp(b, 0f, 1f),
+            Math.Clamp(a, 0f, 1f)
+        );
+    }
+
+    static Color TriangleColor(float wR, float wG, float wB, float alpha = 1f)
+    {
+        // Normalize just in case (should already sum to 1 if barycentric is correct)
+        float sum = wR + wG + wB;
+        if (sum > 0f)
+        {
+            wR /= sum; wG /= sum; wB /= sum;
+        }
+
+        // Clamp for numerical safety
+        wR = Math.Clamp(wR, 0f, 1f);
+        wG = Math.Clamp(wG, 0f, 1f);
+        wB = Math.Clamp(wB, 0f, 1f);
+
+        // "Balanced-ness": 0 on edges, 1 at centroid
+        float b = 3f * Math.Min(wR, Math.Min(wG, wB));
+        b = Math.Clamp(b, 0f, 1f);
+
+        // Base barycentric RGB
+        float r0 = wR, g0 = wG, b0 = wB;
+
+        // Blend towards white as point gets more "central"
+        float r = (1f - b) * r0 + b * 1f;
+        float g = (1f - b) * g0 + b * 1f;
+        float bb = (1f - b) * b0 + b * 1f;
+
+        return new Color(r, g, bb, Math.Clamp(alpha, 0f, 1f));
     }
 
     /// <summary>
