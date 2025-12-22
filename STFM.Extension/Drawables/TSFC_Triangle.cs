@@ -287,11 +287,66 @@ public class TSFC_Triangle : IDrawable
         }
 
         // Temporarily drawing also the barycentric coordinates
-        string u_v_w_string = "u = " + Math.Round(u, 5).ToString() + "\nv = " + Math.Round(v, 5).ToString() + "\nw = " + Math.Round(w, 5).ToString();
-        canvas.FontSize = 14;
-        canvas.FontColor = Colors.Black;
-        canvas.DrawString(u_v_w_string, centerX * 2f - 100, centerY * 2f - 100, 100, 100, HorizontalAlignment.Left, VerticalAlignment.Top, TextFlow.OverflowBounds);
+        bool drawCoordinates = false;
+        if (drawCoordinates)
+        {
+            string u_v_w_string = "u = " + Math.Round(u, 5).ToString() + "\nv = " + Math.Round(v, 5).ToString() + "\nw = " + Math.Round(w, 5).ToString();
+            canvas.FontSize = 14;
+            canvas.FontColor = Colors.Black;
+            canvas.DrawString(u_v_w_string, centerX * 2f - 100, centerY * 2f - 100, 100, 100, HorizontalAlignment.Left, VerticalAlignment.Top, TextFlow.OverflowBounds);
+        }
 
+        // Draws a word indicating the level of certainty
+
+        if (circleIsVisible)
+        {
+
+
+            var certaintyLevel = Math.Max(Math.Max(u, v), w);
+
+            canvas.FontSize = circleRadius * 0.5f;
+            string certaintyString = "";
+            switch (certaintyLevel)
+            {
+                case < 0.4:
+                    canvas.FontColor = Colors.Red;
+                    certaintyString = "Ingen aning";
+                    break;
+
+                case < 0.5:
+                    canvas.FontColor = Colors.Orange;
+                    certaintyString = "Mycket osäker";
+                    break;
+
+                case < 0.7:
+                    canvas.FontColor = Colors.Yellow;
+                    certaintyString = "Ganska osäker";
+                    break;
+
+                case < 0.95:
+                    canvas.FontColor = Colors.GreenYellow;
+                    certaintyString = "Ganska säker";
+                    break;
+
+                default:
+                    canvas.FontColor = Colors.LawnGreen;
+                    certaintyString = "Helt säker";
+                    break;
+
+            }
+
+            canvas.StrokeColor = background;
+            canvas.FillColor = background;
+            RectF certaintyRect = new RectF(circleLocation.X - circleRadius * 2, circleLocation.Y - circleRadius * 1.9f, circleRadius * 4, circleRadius * 0.7f);
+
+            certaintyRect.Y = Math.Max(0, certaintyRect.Y);
+            certaintyRect.X = Math.Max(0, certaintyRect.X);
+            certaintyRect.X = Math.Min(certaintyRect.X, (float)parentView.Width - certaintyRect.Width);
+
+            canvas.FillRoundedRectangle(certaintyRect, 20);
+            canvas.DrawString(certaintyString, certaintyRect, HorizontalAlignment.Center, VerticalAlignment.Top, TextFlow.OverflowBounds);
+
+        }
     }
 
     /// <summary>

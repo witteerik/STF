@@ -48,7 +48,7 @@
             Margin="10,2,10,12"
             Padding="5,2,5,2">
 
-            <ProgressBar x:Name="PtcProgressBar" Progress="0.4" 
+            <ProgressBar x:Name="PtcProgressBar" Progress="0" 
                      ProgressColor="#FFFF80"
                      Background="DarkSlateGray"
                      HorizontalOptions="Fill" 

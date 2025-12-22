@@ -23,6 +23,7 @@ Public Class AdaptiveSip_TsfcStudy
 
     Private MinPNR As Double = -20
     Private MaxPNR As Double = 15
+    Private IgnoreNegativeCoordinates As Boolean = False
 
     Private TestProtocols As Dictionary(Of String, TestProtocol)
     Private AdaptiveLevelHistory As Dictionary(Of String, List(Of Double))
@@ -311,8 +312,11 @@ Public Class AdaptiveSip_TsfcStudy
             'Setting test protocol, including estimated slope and target score
             Dim NewTestProtocol = New STFN.Core.BrandKollmeier2002_TestProtocol
             NewTestProtocol.Slope = 0.034
-            'NewTestProtocol.TargetScore = 2 / 3
-            NewTestProtocol.TargetScore = 0.5
+            If IgnoreNegativeCoordinates = True Then
+                NewTestProtocol.TargetScore = 0.5
+            Else
+                NewTestProtocol.TargetScore = 2 / 3
+            End If
             NewTestProtocol.EnsureSentenceTest = False
             TestProtocols.Add(TWG.PrimaryStringRepresentation, NewTestProtocol)
 
@@ -474,15 +478,27 @@ Public Class AdaptiveSip_TsfcStudy
                         Dim CorrectResponse = CurrentTestTrial.SpeechMaterialComponent.GetCategoricalVariableValue("Spelling")
                         If CorrectResponse = ResponseCandidate.Key Then
 
-                            'The incoming coordinate (for the correct response alternative) is here streched linearly from the range 1/3 - 1 to 0 - 1
-                            Dim BarycentricCoordinate As Double = (3 * ResponseCandidate.Value - 1) / 2
+                            If IgnoreNegativeCoordinates = True Then
 
-                            'And clamped to the range 0 - 1
-                            BarycentricCoordinate = Math.Clamp(BarycentricCoordinate, 0, 1)
+                                'The incoming coordinate (for the correct response alternative) is here streched linearly from the range 1/3 - 1 to 0 - 1
+                                Dim BarycentricCoordinate As Double = (3 * ResponseCandidate.Value - 1) / 2
 
-                            'And storing it in the trial
-                            CurrentTestTrial.GradedResponse = BarycentricCoordinate
+                                'And clamped to the range 0 - 1
+                                BarycentricCoordinate = Math.Clamp(BarycentricCoordinate, 0, 1)
+
+                                'And storing it in the trial
+                                CurrentTestTrial.GradedResponse = BarycentricCoordinate
+
+                            Else
+
+                                'Stores the barycentric coordinate as it is (but clamped to the range 0 - 1, just in case it should be slightly off this range - which it should never be, but just in case something went wrong with the limits in the TSFC-GUI) 
+                                CurrentTestTrial.GradedResponse = Math.Clamp(ResponseCandidate.Value, 0, 1)
+
+                            End If
+
+                            'Exiting the loop
                             Exit For
+
                         End If
                     Next
 
@@ -577,20 +593,21 @@ Public Class AdaptiveSip_TsfcStudy
 
             'Using the selected test protocol
             'Determining if the level should be update. 
-            If EvaluationTrials.Count > BallparkLength And (EvaluationTrials.Count - (BallparkLength + 3)) Mod 3 = 0 Then
+            Dim AdaptiveEvaluationLength As Integer = 1
+            If EvaluationTrials.Count > BallparkLength And (EvaluationTrials.Count - (BallparkLength + AdaptiveEvaluationLength)) Mod AdaptiveEvaluationLength = 0 Then
 
                 'Getting the test stage trials that occur after the ballpark stage
                 EvaluationTrials = EvaluationTrials.GetRange(BallparkLength, EvaluationTrials.Count - BallparkLength)
 
                 'Setting EvaluationTrialCount so that EvaluationTrials.GetObservedScore returns the average of the three last trials in the test unti
-                EvaluationTrials.EvaluationTrialCount = 3
+                EvaluationTrials.EvaluationTrialCount = AdaptiveEvaluationLength
                 ProtocolReply = TestProtocols(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation).NewResponse(EvaluationTrials)
 
                 'Adding the adaptive level to the AdaptiveLevelHistory 
                 AdaptiveLevelHistory(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation).Add(ProtocolReply.AdaptiveValue)
 
                 'Stopping after X reversals
-                If Math.Abs(ProtocolReply.AdaptiveReversalCount.Value) > 6 Then
+                If Math.Abs(ProtocolReply.AdaptiveReversalCount.Value) > 15 Then
                     Return SpeechTestReplies.TestIsCompleted
                 End If
 
