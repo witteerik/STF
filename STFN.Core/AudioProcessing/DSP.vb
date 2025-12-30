@@ -2773,6 +2773,324 @@ Public Class DSP
     End Enum
 
 
+    '''' <summary>
+    '''' Computes a VU-style meter reading (in VU dB) at every sample.
+    '''' 0 VU is defined by refDbFS (e.g. -18 dBFS).
+    '''' Ballistics: 99% in 300 ms (standard VU integration behavior).
+    '''' </summary>
+    '''' <param name="mySamples">Samples data</param>
+    '''' <param name="sampleRate">Sample rate in Hz</param>
+    '''' <param name="refDbFS">Reference in dBFS for 0 VU (common: -18.0 or -20.0)</param>
+    '''' <param name="floorDb">Lower clamp for display/logging (e.g. -80)</param>
+    '''' <returns>Array of VU readings in dB (0 means 0 VU)</returns>
+    'Public Shared Function ComputeVuDbPerSample(
+    '                                    mySamples As Single(),
+    '                                    sampleRate As Integer,
+    '                                    bitDepth As Integer,
+    '                                    Optional refDbFS As Double = -18.0,
+    '                                    Optional floorDb As Double = -80.0) As Double()
+
+    '    If mySamples Is Nothing Then Throw New ArgumentNullException(NameOf(mySamples))
+    '    If sampleRate <= 0 Then Throw New ArgumentOutOfRangeException(NameOf(sampleRate))
+    '    If bitDepth <> 32 Then Throw New NotImplementedException("A bit depth of " & bitDepth & " is not yet supported!")
+
+    '    Dim n As Integer = mySamples.Length
+    '    Dim vuDb(n - 1) As Double
+
+    '    ' --- VU ballistic: step reaches 99% in 0.300 s
+    '    ' For a 1-pole lowpass: y(t) = 1 - exp(-t/tau)
+    '    ' Set 0.99 = 1 - exp(-T/tau) -> exp(-T/tau)=0.01 -> tau = T/ln(100)
+    '    Dim T As Double = 0.3
+    '    Dim tau As Double = T / Math.Log(100.0)   ' ~0.0651 s
+
+    '    ' Per-sample coefficient
+    '    Dim dt As Double = 1.0 / sampleRate
+    '    Dim a As Double = Math.Exp(-dt / tau)     ' feedback coefficient
+    '    Dim b As Double = 1.0 - a                 ' feedforward coefficient
+
+    '    ' Reference: 0 VU corresponds to refDbFS in dBFS
+    '    ' Convert dBFS to linear amplitude, assuming full-scale sine peak = 1.0
+    '    Dim refLinear As Double = Math.Pow(10.0, refDbFS / 20.0)
+
+    '    ' Avoid log(0)
+    '    Dim eps As Double = 0.000000000001
+
+    '    ' Smoothed rectified envelope
+    '    Dim env As Double = 0.0
+
+    '    'Const vuSineCal As Double = 1.11072073453959 ' = (pi) / (2*sqrt(2))
+    '    Dim vuSineCal As Double = Math.PI / (2 * Math.Sqrt(2))
+
+    '    For i As Integer = 0 To n - 1
+
+    '        Dim x As Double = vuSineCal * Math.Abs(CDbl(mySamples(i)))
+
+    '        ' For full-wave rectification (average-responding style), us this instead of the above
+    '        'Dim x As Double = Math.Abs(CDbl(mySamples(i)))
+
+    '        ' Ballistic smoothing
+    '        env = a * env + b * x
+
+    '        ' Convert to dB relative to ref (0 dB => 0 VU)
+    '        Dim level As Double = Math.Max(env, eps)
+    '        Dim db As Double = 20.0 * Math.Log10(level / refLinear)
+
+    '        ' Clamp for nicer handling
+    '        If db < floorDb Then db = floorDb
+
+    '        vuDb(i) = db
+    '    Next
+
+    '    Return vuDb
+    'End Function
+
+    ''' <summary>
+    ''' Computes a "standard VU-meter style" reading at every sample time point.
+    '''
+    ''' What this function returns:
+    ''' - An array of dB values where:
+    '''     0.0 dB  ==  0 VU (by definition / calibration you choose)
+    '''    -3.0 dB  ==  3 VU below 0
+    '''    +2.0 dB  ==  2 VU above 0
+    '''
+    ''' Key design choices in this implementation:
+    '''  1) Input is assumed to be floating-point audio samples (Single) typically in [-1.0, +1.0].
+    '''     - "0 dBFS" means full-scale peak amplitude = 1.0 (peak).
+    '''
+    '''  2) A classic analog VU meter is:
+    '''     - average-responding (rectifier + averaging),
+    '''     - with specified ballistics (integration time),
+    '''     - and calibrated so that a sine wave reads correctly.
+    '''
+    '''  3) Ballistics target:
+    '''     - "Step reaches 99% in 300 ms" (a common way to express VU integration behavior).
+    '''     - We implement this with a 1st-order low-pass (one-pole IIR) envelope follower.
+    '''
+    '''  4) Calibration target:
+    '''     - We define "0 VU" as refDbFS in dBFS.
+    '''     - Common in digital audio: 0 VU = -18 dBFS (often intended as -18 dBFS RMS for a sine),
+    '''       but you can choose -20, -14, etc.
+    ''' </summary>
+    ''' <param name="mySamples">
+    ''' Mono samples stored as Single(). Usually normalized so that:
+    '''   -1.0 .. +1.0 corresponds to full-scale digital range.
+    ''' </param>
+    ''' <param name="sampleRate">
+    ''' Sample rate in Hz, e.g. 44100 or 48000.
+    ''' </param>
+    ''' <param name="bitDepth">
+    ''' Included here as a guard/metadata check. For this function, we assume 32-bit float samples.
+    ''' (Bit depth is not used in the math when samples are already Single.)
+    ''' </param>
+    ''' <param name="refDbFS">
+    ''' Reference in dBFS that should correspond to 0 VU.
+    ''' Example: refDbFS = -18 means:
+    '''   when the measured (calibrated) envelope equals 10^(-18/20) in linear amplitude,
+    '''   the output will be 0.0 dB (0 VU).
+    ''' </param>
+    ''' <param name="floorDb">
+    ''' Lower clamp value for output, purely for convenience (avoid very negative numbers).
+    ''' </param>
+    ''' <returns>
+    ''' Double() array with one VU value (in dB relative to 0 VU) per input sample.
+    ''' </returns>
+    Public Shared Function ComputeVuDbPerSample(
+                                    mySamples As Single(),
+                                    sampleRate As Integer,
+                                    bitDepth As Integer,
+                                    Optional refDbFS As Double = -18.0,
+                                    Optional floorDb As Double = -20.0) As Double()
+
+        ' -----------------------------
+        ' 0) Validate inputs
+        ' -----------------------------
+        If mySamples Is Nothing Then Throw New ArgumentNullException(NameOf(mySamples))
+        If sampleRate <= 0 Then Throw New ArgumentOutOfRangeException(NameOf(sampleRate))
+
+        ' This guard just reflects your stated assumption.
+        ' If you feed 16-bit PCM etc, you would first convert to Single in [-1, +1].
+        If bitDepth <> 32 Then Throw New NotImplementedException("A bit depth of " & bitDepth & " is not yet supported!")
+
+        Dim n As Integer = mySamples.Length
+
+        ' Output array: one meter reading per sample
+        Dim vuDb(n - 1) As Double
+
+        ' -----------------------------
+        ' 1) Ballistics: choose time constant tau
+        ' -----------------------------
+        ' We model VU integration ("ballistics") with a 1st-order low-pass filter:
+        '
+        '   env(t) is the smoothed version of some instantaneous level x(t)
+        '
+        ' Continuous-time step response of a 1st-order low-pass:
+        '   y(t) = 1 - exp(-t / tau)
+        '
+        ' We want: y(T) = 0.99 at T = 0.300 s
+        '
+        '   0.99 = 1 - exp(-T/tau)
+        '   exp(-T/tau) = 0.01
+        '   -T/tau = ln(0.01) = -ln(100)
+        '   tau = T / ln(100)
+        '
+        ' This yields tau ≈ 0.0651 s.
+        Dim T As Double = 0.3
+        Dim tau As Double = T / Math.Log(100.0)  ' ~0.0651 seconds
+
+        ' -----------------------------
+        ' 2) Convert the continuous-time filter into a discrete-time (per-sample) filter
+        ' -----------------------------
+        ' For a one-pole IIR envelope follower implemented per sample:
+        '
+        '   env[i] = a * env[i-1] + (1 - a) * x[i]
+        '
+        ' where:
+        '   dt = 1 / sampleRate
+        '   a = exp(-dt / tau)
+        '
+        ' Interpretation:
+        ' - If a is close to 1: heavy smoothing (slow meter)
+        ' - If a is smaller: faster response
+        '
+        ' This formula matches the exact discretization of the 1st-order system.
+        Dim dt As Double = 1.0 / sampleRate
+        Dim a As Double = Math.Exp(-dt / tau) ' "memory" of previous envelope
+        Dim b As Double = 1.0 - a            ' "weight" of the new instantaneous level
+
+        ' -----------------------------
+        ' 3) Define the calibration reference (0 VU point) in linear amplitude
+        ' -----------------------------
+        ' dBFS is defined relative to "full scale".
+        ' With float audio normalized so that full-scale PEAK is 1.0:
+        '
+        '   linearAmplitude = 10^(dB / 20)
+        '
+        ' Example: refDbFS = -18:
+        '   refLinear = 10^(-18/20) ≈ 0.125892541
+        '
+        ' We will later compute:
+        '   db = 20*log10( env / refLinear )
+        '
+        ' So when env == refLinear, db == 0 (0 VU).
+        Dim refLinear As Double = Math.Pow(10.0, (refDbFS - 3.01) / 20.0) 'Subtracting 3.01 dB to have it calibrated against the peak level
+
+        ' -----------------------------
+        ' 4) Avoid log(0)
+        ' -----------------------------
+        ' If the signal is silent, env can become 0.0.
+        ' log10(0) is undefined, so we clamp env to a tiny value.
+        Dim eps As Double = Double.Epsilon
+
+        ' -----------------------------
+        ' 5) VU rectifier calibration constant (important!)
+        ' -----------------------------
+        ' Classic VU meters are "average responding" (rectify + average),
+        ' but they are calibrated so that a sine wave produces the expected reading.
+        '
+        ' If we take a sine wave with peak amplitude A:
+        '   - Mean of |sin| over a cycle = 2/pi
+        '   - RMS of sin = 1/sqrt(2)
+        '
+        ' The ratio (RMS / mean(|sin|)) is:
+        '   (1/sqrt(2)) / (2/pi) = pi / (2*sqrt(2)) ≈ 1.11072
+        '
+        ' If we multiply the rectified signal by this constant,
+        ' then a sine wave will read "RMS-correct" relative to a typical VU calibration,
+        ' avoiding the ~0.91 dB offset that would otherwise be observed.
+        '
+        ' In other words:
+        ' - If you DO NOT apply this constant, a sine tone will plateau around -0.91 dB
+        '   compared to an RMS-based reference.
+        Dim vuSineCal As Double = Math.PI / (2.0 * Math.Sqrt(2.0)) ' ≈ 1.1107207345
+
+        ' -----------------------------
+        ' 6) Envelope state
+        ' -----------------------------
+        '' env holds the smoothed/averaged level. Start at 0 for "silence".
+        'Dim env As Double = 0.0
+
+        ' Initialize envelope to the physical VU needle rest position (-20 VU)
+        ' -20 dB => env = refLinear * 10^(-20/20) = refLinear * 0.1
+        Dim env As Double = refLinear * 0.1
+
+        ' -----------------------------
+        ' 7) Main loop: compute a VU value for every sample
+        ' -----------------------------
+        For i As Integer = 0 To n - 1
+
+            ' 7a) Take the instantaneous sample.
+            '     mySamples(i) is signed audio (positive/negative).
+            '     A level meter should ignore sign, so we rectify it.
+            Dim sample As Double = CDbl(mySamples(i))
+
+            ' 7b) Full-wave rectification (magnitude).
+            '     This is the "average-responding" part: |x|.
+            Dim rectified As Double = Math.Abs(sample)
+
+            ' 7c) Apply the sine calibration factor.
+            '     This makes the average-responding rectifier line up with sine-RMS calibration.
+            Dim x As Double = vuSineCal * rectified
+
+            ' If you want a *pure* average-responding meter (uncalibrated to sine RMS),
+            ' you could skip vuSineCal:
+            'Dim x As Double = rectified
+
+            ' 7d) Ballistic smoothing (one-pole low-pass).
+            '     env approaches x over time, with the chosen 300 ms / 99% behavior.
+            env = a * env + b * x
+
+            ' 7e) Convert smoothed envelope to dB relative to reference.
+            '     - Clamp env so log10 doesn't see 0.
+            '     - Divide by refLinear so that env == refLinear gives 0 dB (0 VU).
+            Dim level As Double = Math.Max(env, eps)
+            Dim db As Double = 20.0 * Math.Log10(level / refLinear)
+
+            ' 7f) Optional clamp for convenience (display/logging hygiene).
+            If db < floorDb Then db = floorDb
+
+            ' 7g) Store the per-sample meter reading.
+            vuDb(i) = db
+        Next
+
+        Return vuDb
+    End Function
+
+
+    Public Shared Function ComputeVuDb(input As Sound,
+                                       Optional refDbFS As Double = -18.0,
+                                       Optional floorDb As Double = -20.0) As Double()
+
+        'This function does basically the same as ComputeVuDbPerSample above but is likely a bit slower and may not be as accurate 
+
+        Dim fs = input.WaveFormat.SampleRate
+        Dim dt = 1 / fs ' Sampling interval
+        Dim T As Double = 0.3
+        Dim tau As Double = T / Math.Log(100.0)  ' ~0.0651 seconds
+
+        Dim a() = {1, -tau / (tau + dt)}    ' denominator coefficients for IIR filter
+        Dim b() = {dt / (tau + dt)}          ' numerator coefficients For IIR filter
+
+        Dim vuSineCal As Double = Math.PI / (2.0 * Math.Sqrt(2.0)) ' ≈ 1.1107207345
+        For i = 0 To input.WaveData.SampleData(1).Length - 1
+            input.WaveData.SampleData(1)(i) = Math.Abs(input.WaveData.SampleData(1)(i)) * vuSineCal
+        Next
+
+        Dim Result = IIR(input, a, b) ' apply filter To signal 
+
+        Dim refLinear As Double = Math.Pow(10.0, (refDbFS - 3.01) / 20.0) 'Subtracting 3.01 dB to have it calibrated against the peak level
+        Dim eps As Double = Double.Epsilon
+
+        Dim Data = Result.WaveData.SampleData(1)
+        Dim Output(Data.Length - 1) As Double
+        For i = 0 To Data.Length - 1
+            Dim level As Double = Math.Max(Data(i), eps)
+            Output(i) = Math.Max(floorDb, 20 * Math.Log10(level / refLinear))
+        Next
+
+        Return Output
+
+    End Function
+
 
 
 #Region "Math"
