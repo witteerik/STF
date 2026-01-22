@@ -15,11 +15,9 @@ Public Class AdaptiveSip_TsfcStudy
 
     Public Overrides ReadOnly Property FilePathRepresentation As String = "SiP_Tsfc"
 
-    Private BallparkLength As Integer = 4
     Private TestSectionTripletCount As Integer = 40
 
     Private StartAdaptiveLevel As Double = 0
-    Private BallparkStepSize As Double = 5
 
     Private MinPNR As Double = -20
     Private MaxPNR As Double = 15
@@ -35,11 +33,14 @@ Public Class AdaptiveSip_TsfcStudy
 
     'Setting the sound source locations
     Private SipTargetStimulusLocations As SoundSourceLocation() = {New SoundSourceLocation With {.HorizontalAzimuth = 0, .Distance = 1.45}}
+    'Private SipMaskerLocations As SoundSourceLocation() = {
+    '        New SoundSourceLocation With {.HorizontalAzimuth = -30, .Distance = 1.45},
+    '        New SoundSourceLocation With {.HorizontalAzimuth = 30, .Distance = 1.45}}
     Private SipMaskerLocations As SoundSourceLocation() = {
-            New SoundSourceLocation With {.HorizontalAzimuth = -30, .Distance = 1.45},
-            New SoundSourceLocation With {.HorizontalAzimuth = 30, .Distance = 1.45}}
+            New SoundSourceLocation With {.HorizontalAzimuth = 0, .Distance = 1.45}}
+
     Private SipBackgroundLocations As SoundSourceLocation() = {
-            New SoundSourceLocation With {.HorizontalAzimuth = -60, .Distance = 1.45},
+            New SoundSourceLocation With {.HorizontalAzimuth = 60, .Distance = 1.45},
             New SoundSourceLocation With {.HorizontalAzimuth = -60, .Distance = 1.45},
             New SoundSourceLocation With {.HorizontalAzimuth = 150, .Distance = 1.45},
             New SoundSourceLocation With {.HorizontalAzimuth = -150, .Distance = 1.45}}
@@ -262,27 +263,6 @@ Public Class AdaptiveSip_TsfcStudy
 
             'Getting the test words (i.e. sentence level components)
             Dim TestWords = TWG.GetChildren
-
-            'Planning a maximum number of trials
-            Dim MaxTrialCount As Integer = BallparkLength + 3 * TestSectionTripletCount
-
-            'Adding ballpark trials
-            'TODO: Implement sequence restrictions
-            For i = 0 To BallparkLength - 1
-                'Drawing test words at random
-                Dim RandomIndex As Integer = CurrentSipTestMeasurement.Randomizer.Next(0, TestWords.Count)
-
-                'Creating the trial
-                Dim NewTestTrial As New SipTrial(NewTestUnit, TestWords(RandomIndex), SelectedMediaSets.First, SoundPropagationType,
-                                                 SipTargetStimulusLocations, SipMaskerLocations, SipBackgroundLocations, CurrentSipTestMeasurement.Randomizer)
-
-                'Storing IsTSFC in every trial
-                NewTestTrial.IsTSFCTrial = IsTSFC
-
-                'Adding the trial
-                NewTestUnit.PlannedTrials.Add(NewTestTrial)
-
-            Next
 
             'Adding test section trials
             For i = 0 To TestSectionTripletCount - 1
@@ -542,62 +522,29 @@ Public Class AdaptiveSip_TsfcStudy
             EvaluationTrials.Add(Trial)
         Next
 
-        If EvaluationTrials.Count < BallparkLength Then
+        'Initializing the test protocol of this test unit
+        If EvaluationTrials.Count = 0 Then
+            Dim TestUnitPlannedTrials = DirectCast(CurrentTestTrial, SipTrial).ParentTestUnit.PlannedTrials
+            TestProtocols(TestUnitPlannedTrials.First.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation).InitializeProtocol(
+            New TestProtocol.NextTaskInstruction With {.AdaptiveValue = StartAdaptiveLevel, .TestLength = TestUnitPlannedTrials.Count})
 
             'We are in the ballpark stage of this test unit
             ProtocolReply = New TestProtocol.NextTaskInstruction()
             ProtocolReply.Decision = SpeechTestReplies.GotoNextTrial
-
-            If EvaluationTrials.Count = 0 Then
-                'We get the start level
-                ProtocolReply.AdaptiveValue = StartAdaptiveLevel
-                ProtocolReply.AdaptiveStepSize = BallparkStepSize
-            Else
-
-                If EvaluationTrials.Last.IsTSFCTrial = True Then
-
-                    'Implementing- the TSFC logic for the ballpark stage
-                    'Determining step size
-                    Dim StepSize As Double = (BallparkStepSize / 2) - BallparkStepSize * (3 * EvaluationTrials.Last.GradedResponse - 1) / 2
-
-                    'Storing the step size
-                    ProtocolReply.AdaptiveStepSize = StepSize
-
-                    'Calculating the new level
-                    ProtocolReply.AdaptiveValue = DirectCast(EvaluationTrials.Last, SipTrial).PNR + ProtocolReply.AdaptiveStepSize
-
-                Else
-
-                    'Setting Adaptive level based on the observed binary responses in the ballpark stage of this test word group / TestUnit
-                    Dim LastTrial As SipTrial = EvaluationTrials.Last
-                    ProtocolReply.AdaptiveStepSize = BallparkStepSize
-
-                    If LastTrial.IsCorrect = True Then
-                        ProtocolReply.AdaptiveValue = LastTrial.PNR - ProtocolReply.AdaptiveStepSize
-                    Else
-                        ProtocolReply.AdaptiveValue = LastTrial.PNR + ProtocolReply.AdaptiveStepSize
-                    End If
-
-                End If
-            End If
+            ProtocolReply.AdaptiveValue = StartAdaptiveLevel
+            ProtocolReply.AdaptiveStepSize = 0 'TODO. Check if this value is relevant!
 
         Else
-            'We are in the test stage of this test unit
-
-            'Getting the initial adaptive level from the ballpark stage, and initializing the test protocol
-            If EvaluationTrials.Count = BallparkLength Then
-                Dim StartLevel As Double = DirectCast(EvaluationTrials.Last, SipTrial).PNR
-                TestProtocols(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation).InitializeProtocol(
-                New TestProtocol.NextTaskInstruction With {.AdaptiveValue = StartLevel, .TestLength = DirectCast(EvaluationTrials.Last, SipTrial).ParentTestUnit.PlannedTrials.Count - BallparkLength})
-            End If
 
             'Using the selected test protocol
             'Determining if the level should be update. 
             Dim AdaptiveEvaluationLength As Integer = 1
-            If EvaluationTrials.Count > BallparkLength And (EvaluationTrials.Count - (BallparkLength + AdaptiveEvaluationLength)) Mod AdaptiveEvaluationLength = 0 Then
+            If EvaluationTrials.Last.IsTSFCTrial = False Then
+                'TODO Consider if this should be 3 in the MAFC test
+                AdaptiveEvaluationLength = 1
+            End If
 
-                'Getting the test stage trials that occur after the ballpark stage
-                EvaluationTrials = EvaluationTrials.GetRange(BallparkLength, EvaluationTrials.Count - BallparkLength)
+            If (EvaluationTrials.Count - AdaptiveEvaluationLength) Mod AdaptiveEvaluationLength = 0 Then
 
                 'Setting EvaluationTrialCount so that EvaluationTrials.GetObservedScore returns the average of the three last trials in the test unti
                 EvaluationTrials.EvaluationTrialCount = AdaptiveEvaluationLength
@@ -638,7 +585,9 @@ Public Class AdaptiveSip_TsfcStudy
                 ProtocolReply.AdaptiveValue = DirectCast(EvaluationTrials.Last, SipTrial).PNR
                 ProtocolReply.AdaptiveStepSize = 0
             End If
+
         End If
+
 
         'Clamping the adaptive value
         ProtocolReply.AdaptiveValue = Math.Clamp(ProtocolReply.AdaptiveValue.Value, MinPNR, MaxPNR)

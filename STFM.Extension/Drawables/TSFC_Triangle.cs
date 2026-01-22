@@ -43,6 +43,18 @@ public class TSFC_Triangle : IDrawable
     private PointF MarginTriangleVertex_TopRight;
     private PointF MarginTriangleVertex_BottomMid;
 
+    private bool useDynamicColors = false;
+    public bool UseDynamicColors
+    {
+        get { return useDynamicColors; }
+        set
+        {
+            useDynamicColors = value;
+            parentView?.Invalidate(); // Trigger a redraw of the GraphicsView
+        }
+    }
+
+
     private Color background = Color.FromArgb("#2F2F2F");
 
     public Color Background
@@ -275,25 +287,32 @@ public class TSFC_Triangle : IDrawable
         {
             float CircleShadowRadius = circleRadius / 3;
 
-            // yellow circle
-            //canvas.FillColor = Color.FromArgb("#FFFFAC");
-            //canvas.StrokeColor = Colors.Yellow;
-            //canvas.SetShadow(new SizeF(0, 0), CircleShadowRadius, Colors.Yellow);
+            if (useDynamicColors)
+            {
+                // Circle with dynamic additive coloring
+                float scaled_u = 1 - (float)Math.Clamp((3 * u - 1) / 2, 0, 1);
+                float scaled_v = 1 - (float)Math.Clamp((3 * v - 1) / 2, 0, 1);
+                float scaled_w = 1 - (float)Math.Clamp((3 * w - 1) / 2, 0, 1);
 
-            // Circle with dynamic additive coloring
-            float scaled_u = 1-(float)Math.Clamp((3 * u - 1) / 2, 0, 1);
-            float scaled_v = 1-(float)Math.Clamp((3 * v - 1) / 2, 0, 1);
-            float scaled_w = 1-(float)Math.Clamp((3 * w - 1) / 2, 0, 1);
+                //Color circleColor = FromRgbAmounts(scaled_u, scaled_w, scaled_v);
 
-            //Color circleColor = FromRgbAmounts(scaled_u, scaled_w, scaled_v);
+                Color circleColor = TriangleColor((float)u, (float)w, (float)v);
 
-            Color circleColor = TriangleColor((float)u, (float)w, (float)v);
-            
+                //Color circleColor = FromRgbAmounts(1-(float)Math.Sqrt(1-u), 1-(float)Math.Sqrt(1-v), 1 - (float)Math.Sqrt(1-w));
+                canvas.FillColor = circleColor;
+                canvas.StrokeColor = circleColor;
+                canvas.SetShadow(new SizeF(0, 0), CircleShadowRadius, circleColor);
 
-            //Color circleColor = FromRgbAmounts(1-(float)Math.Sqrt(1-u), 1-(float)Math.Sqrt(1-v), 1 - (float)Math.Sqrt(1-w));
-            canvas.FillColor = circleColor;
-            canvas.StrokeColor = circleColor;
-            canvas.SetShadow(new SizeF(0, 0), CircleShadowRadius, circleColor);
+            }
+            else
+            {
+                // yellow circle
+                canvas.FillColor = Color.FromArgb("#FFFFAC");
+                canvas.StrokeColor = Colors.Yellow;
+                canvas.SetShadow(new SizeF(0, 0), CircleShadowRadius, Colors.Yellow);
+
+            }
+
 
             canvas.StrokeSize = 2;
             canvas.FillCircle(circleLocation, circleRadius);
