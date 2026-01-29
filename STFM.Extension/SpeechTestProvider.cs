@@ -126,7 +126,7 @@ namespace STFM.Extension
                     speechTestInitiator.TestOptionsView = new OptionsViewAll(speechTestInitiator.SpeechTest);
 
                     // Creating a test results view
-                    speechTestInitiator.TestResultsView = new TestResultView_AdaptiveSiP();
+                    speechTestInitiator.TestResultsView = new TestResultView_MultiAdaptiveSiP();
 
                     // Determining the GuiLayoutState
                     if (Globals.StfBase.CurrentPlatForm == Platforms.WinUI & Globals.StfBase.UseExtraWindows == true)
@@ -170,7 +170,7 @@ namespace STFM.Extension
                     speechTestInitiator.TestOptionsView = new OptionsViewAll(speechTestInitiator.SpeechTest);
 
                     // Creating a test results view
-                    speechTestInitiator.TestResultsView = new TestResultView_AdaptiveSiP();
+                    speechTestInitiator.TestResultsView = new TestResultView_MultiAdaptiveSiP();
 
                     // Determining the GuiLayoutState
                     if (Globals.StfBase.CurrentPlatForm == Platforms.WinUI & Globals.StfBase.UseExtraWindows == true)

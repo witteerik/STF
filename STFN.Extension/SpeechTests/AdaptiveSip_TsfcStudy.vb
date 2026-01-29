@@ -5,8 +5,8 @@
 ' Copyright (c) 2025 Erik Witte
 
 Imports STFN.Core
-Imports STFN.Core.SipTest
 Imports STFN.Core.Audio.SoundScene
+Imports STFN.Core.SipTest
 Imports STFN.Core.Utils
 
 
@@ -19,11 +19,14 @@ Public Class AdaptiveSip_TsfcStudy
 
     Private StartAdaptiveLevel As Double = 0
 
+    Private MaximumTestTrials As Integer = 200
+
     Private MinPNR As Double = -20
     Private MaxPNR As Double = 15
     Private IgnoreNegativeCoordinates As Boolean = False
 
     Private TestProtocols As Dictionary(Of String, TestProtocol)
+    Private TestProtocolCompleted As Dictionary(Of String, Boolean)
     Private AdaptiveLevelHistory As Dictionary(Of String, List(Of Double))
 
 
@@ -32,18 +35,18 @@ Public Class AdaptiveSip_TsfcStudy
 
 
     'Setting the sound source locations
-    Private SipTargetStimulusLocations As SoundSourceLocation() = {New SoundSourceLocation With {.HorizontalAzimuth = 0, .Distance = 1.45}}
+    Private SipTargetStimulusLocations As SoundSourceLocation() = {New SoundSourceLocation With {.HorizontalAzimuth = 0, .Distance = 3}}
     'Private SipMaskerLocations As SoundSourceLocation() = {
-    '        New SoundSourceLocation With {.HorizontalAzimuth = -30, .Distance = 1.45},
-    '        New SoundSourceLocation With {.HorizontalAzimuth = 30, .Distance = 1.45}}
+    '        New SoundSourceLocation With {.HorizontalAzimuth = -30, .Distance = 3},
+    '        New SoundSourceLocation With {.HorizontalAzimuth = 30, .Distance = 3}}
     Private SipMaskerLocations As SoundSourceLocation() = {
-            New SoundSourceLocation With {.HorizontalAzimuth = 0, .Distance = 1.45}}
+            New SoundSourceLocation With {.HorizontalAzimuth = 0, .Distance = 3}}
 
     Private SipBackgroundLocations As SoundSourceLocation() = {
-            New SoundSourceLocation With {.HorizontalAzimuth = 60, .Distance = 1.45},
-            New SoundSourceLocation With {.HorizontalAzimuth = -60, .Distance = 1.45},
-            New SoundSourceLocation With {.HorizontalAzimuth = 150, .Distance = 1.45},
-            New SoundSourceLocation With {.HorizontalAzimuth = -150, .Distance = 1.45}}
+            New SoundSourceLocation With {.HorizontalAzimuth = 60, .Distance = 3},
+            New SoundSourceLocation With {.HorizontalAzimuth = -60, .Distance = 3},
+            New SoundSourceLocation With {.HorizontalAzimuth = 150, .Distance = 3},
+            New SoundSourceLocation With {.HorizontalAzimuth = -150, .Distance = 3}}
 
 
     Public Overrides Property TestProtocol As TestProtocol
@@ -102,7 +105,8 @@ Public Class AdaptiveSip_TsfcStudy
 
         'ShowGuiChoice_SoundFieldSimulation = True
 
-        DirectionalSimulationSet = "ARC - Harcellen - HATS - SiP - HR"
+        DirectionalSimulationSet = "OL-HEAD_BuK_ECEbl - 48kHz"
+        'DirectionalSimulationSet = "ARC - Harcellen - HATS - SiP - HR"
         'DirectionalSimulationSet = "ARC - Harcellen - HATS - SiP"
         ' DirectionalSimulationSet = "ARC - Harcellen - HATS 256 - 48kHz"
 
@@ -298,6 +302,9 @@ Public Class AdaptiveSip_TsfcStudy
                 NewTestProtocol.TargetScore = 2 / 3
             End If
             NewTestProtocol.EnsureSentenceTest = False
+            'Storing the TWG.PrimaryStringRepresentation in the test protocol's TargetStimulusSet
+            NewTestProtocol.TargetStimulusSet = TWG.PrimaryStringRepresentation
+
             TestProtocols.Add(TWG.PrimaryStringRepresentation, NewTestProtocol)
 
             'Also adds the key to AdaptiveLevelHistory 
@@ -305,12 +312,16 @@ Public Class AdaptiveSip_TsfcStudy
 
         Next
 
-
+        'Adding test test trials. Interleaving trials across test units: for each trial position, adding one trial per unit in random order
         'Adding the trials to CurrentSipTestMeasurement PlannedTrials (from which they can be drawn during testing)
-        For ui = 0 To CurrentSipTestMeasurement.TestUnits.Count - 1
-            Dim Unit As SiPTestUnit = CurrentSipTestMeasurement.TestUnits(ui)
-            For Each Trial In Unit.PlannedTrials
-                CurrentSipTestMeasurement.PlannedTrials.Add(Trial)
+        For testUnitTrialIndex = 0 To CurrentSipTestMeasurement.TestUnits(0).PlannedTrials.Count - 1
+
+            'Getting a vector of test unit indices to draw
+            Dim RandomIndices = STFN.Core.DSP.SampleWithoutReplacement(CurrentSipTestMeasurement.TestUnits.Count, 0, CurrentSipTestMeasurement.TestUnits.Count)
+
+            'Adding to CurrentSipTestMeasurement.PlannedTrials in random order, each testUnitTrialIndex at a time
+            For testUnitIndex = 0 To RandomIndices.Count - 1
+                CurrentSipTestMeasurement.PlannedTrials.Add(CurrentSipTestMeasurement.TestUnits(RandomIndices(testUnitIndex)).PlannedTrials(testUnitTrialIndex))
             Next
         Next
 
@@ -501,8 +512,6 @@ Public Class AdaptiveSip_TsfcStudy
 
         End If
 
-        'TODO: We must store the responses and response times!!!
-
         'Returning if no more trials to present
         If CurrentSipTestMeasurement.PlannedTrials.Count = 0 Then
             'Test is completed
@@ -555,7 +564,16 @@ Public Class AdaptiveSip_TsfcStudy
 
                 'Stopping after X reversals
                 If Math.Abs(ProtocolReply.AdaptiveReversalCount.Value) > 15 Then
-                    Return SpeechTestReplies.TestIsCompleted
+
+                    'Noting the test protocol / test unit as completed
+                    TestProtocolCompleted(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation) = True
+
+                    If AllProtocolsCompleted() Then
+                        Return SpeechTestReplies.TestIsCompleted
+                    Else
+                        Return SpeechTestReplies.GotoNextTrial
+                    End If
+
                 End If
 
                 'Or stopping when the adaptive levels plateau
@@ -567,15 +585,30 @@ Public Class AdaptiveSip_TsfcStudy
                     'Stopping when the adaptive level range falls under 1 dB  
                     If Math.Abs(LastLevelSteps.Max - LastLevelSteps.Min) < 1 Then
 
-                        'TODO, this needs to allow for the remaining TWGs to complete. Thus stopping should rather be done in the protocol, and then checked between the protocols
-                        Return SpeechTestReplies.TestIsCompleted
+                        'Noting the test protocol / test unit as completed
+                        TestProtocolCompleted(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation) = True
+
+                        If AllProtocolsCompleted() Then
+                            Return SpeechTestReplies.TestIsCompleted
+                        Else
+                            Return SpeechTestReplies.GotoNextTrial
+                        End If
+
                     End If
                 End If
 
                 'Or if the trial length limit is reached
-                Dim TrialLengthLimit As Integer = 50
-                If EvaluationTrials.Count > TrialLengthLimit Then
-                    Return SpeechTestReplies.TestIsCompleted
+                If EvaluationTrials.Count > MaximumTestTrials Then
+
+                    'Noting the test protocol / test unit as completed
+                    TestProtocolCompleted(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation) = True
+
+                    If AllProtocolsCompleted() Then
+                        Return SpeechTestReplies.TestIsCompleted
+                    Else
+                        Return SpeechTestReplies.GotoNextTrial
+                    End If
+
                 End If
 
             Else
@@ -601,6 +634,14 @@ Public Class AdaptiveSip_TsfcStudy
 
     End Function
 
+    Public Function AllProtocolsCompleted() As Boolean
+
+        For Each protocol In TestProtocolCompleted
+            If protocol.Value = False Then Return False
+        Next
+        Return True
+
+    End Function
 
     Protected Overrides Sub PrepareNextTrial(ByVal NextTaskInstruction As TestProtocol.NextTaskInstruction)
 
@@ -724,10 +765,13 @@ Public Class AdaptiveSip_TsfcStudy
 
     End Function
 
+    Private TwgProtocolCombinations As New SortedList(Of String, String)
 
     Public Overrides Function GetResultStringForGui() As String
 
-        Return "Not yet implemented"
+        'This is not used
+
+        Return ""
 
         'Dim Output As New List(Of String)
 

@@ -1,0 +1,227 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentView
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="STFM.Extension.Views.TwgPanelView">
+
+    <!-- Root Frame -->
+    <Frame Margin="0" Padding="0">
+        <!-- Paste your TwgFrame's inner Grid here.
+             IMPORTANT: remove x:Name collisions if you create multiple instances. -->
+
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1*" />
+                <ColumnDefinition Width="2*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="1*" />
+            </Grid.RowDefinitions>
+
+            <Frame x:Name="SummaryFrame" 
+                   Grid.Row="0" Grid.RowSpan="1"
+                   Grid.Column="0" Grid.ColumnSpan="1" 
+                   Margin="3" Padding="12,12,12,12"
+                   Background="DarkSlateGray">
+
+                <Grid >
+
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2*" />
+                        <ColumnDefinition Width="2*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="1*" />
+                        <RowDefinition Height="1*" />
+                        <RowDefinition Height="1*" />
+                        <RowDefinition Height="1*" />
+                        <RowDefinition Height="1*" />
+                        <RowDefinition Height="1*" />
+                    </Grid.RowDefinitions>
+
+                    <!--Adding controls -->
+
+                    <Label x:Name="TwgNameLabel" 
+                       Grid.Row="0" Grid.Column="0" 
+                       HorizontalOptions="Fill" VerticalOptions="Fill"
+                       HorizontalTextAlignment="Start"
+                       VerticalTextAlignment="Center"
+                           Text="Target score:"
+                           TextColor="AntiqueWhite">
+                    </Label>
+
+                    <Frame Grid.Row="0" Grid.Column="1" Background="AntiqueWhite"  CornerRadius="2" Margin="0" Padding="2" HeightRequest="25">
+                        <Label x:Name="TwgValueLabel" 
+                       HorizontalOptions="Fill" VerticalOptions="Fill"
+                       HorizontalTextAlignment="Center"
+                       VerticalTextAlignment="Center"
+                          Text="">
+                        </Label>
+                    </Frame>
+
+                    <Label x:Name="TargetScoreNameLabel" 
+                       Grid.Row="1" Grid.Column="0" 
+                       HorizontalOptions="Fill" VerticalOptions="Fill"
+                       HorizontalTextAlignment="Start"
+                       VerticalTextAlignment="Center"
+                           Text="Target score:"
+                           TextColor="AntiqueWhite">
+                    </Label>
+
+                    <Frame Grid.Row="1" Grid.Column="1" Background="AntiqueWhite"  CornerRadius="2" Margin="0" Padding="2" HeightRequest="25">
+                        <Label x:Name="TargetScoreValueLabel" 
+                       HorizontalOptions="Fill" VerticalOptions="Fill"
+                       HorizontalTextAlignment="Center"
+                       VerticalTextAlignment="Center"
+                          Text="">
+                        </Label>
+                    </Frame>
+
+                    <Label x:Name="ReferenceLevelNameLabel" 
+                       Grid.Row="2" Grid.Column="0" 
+                       HorizontalOptions="Fill" VerticalOptions="Fill"
+                       HorizontalTextAlignment="Start"
+                       VerticalTextAlignment="Center"
+                           Text="Reference level:"
+                           TextColor="AntiqueWhite">
+                    </Label>
+
+                    <Frame Grid.Row="2" Grid.Column="1" Background="AntiqueWhite"  CornerRadius="2" Margin="0" Padding="2" HeightRequest="25">
+                        <Label x:Name="ReferenceLevelValueLabel" 
+                       HorizontalOptions="Fill" VerticalOptions="Fill"
+                       HorizontalTextAlignment="Center"
+                       VerticalTextAlignment="Center"
+                          Text="">
+                        </Label>
+                    </Frame>
+
+                    <Label x:Name="AdaptiveLevelNameLabel" 
+                       Grid.Row="3" Grid.Column="0" 
+                       HorizontalOptions="Fill" VerticalOptions="Fill"
+                       HorizontalTextAlignment="Start"
+                       VerticalTextAlignment="Center"
+                           Text="Adaptive level:"
+                           TextColor="AntiqueWhite">
+                    </Label>
+
+                    <Frame Grid.Row="3" Grid.Column="1" Background="AntiqueWhite"  CornerRadius="2" Margin="0" Padding="2" HeightRequest="25">
+                        <Label x:Name="AdaptiveLevelValueLabel" 
+                       HorizontalOptions="Fill" VerticalOptions="Fill"
+                       HorizontalTextAlignment="Center"
+                       VerticalTextAlignment="Center"
+                          Text="">
+                        </Label>
+                    </Frame>
+
+                    <Label x:Name="TrialNumberNameLabel" 
+                       Grid.Row="4" Grid.Column="0" 
+                       HorizontalOptions="Fill" VerticalOptions="Fill"
+                       HorizontalTextAlignment="Start"
+                       VerticalTextAlignment="Center"
+                           Text="Trial number:"
+                           TextColor="AntiqueWhite">
+                    </Label>
+
+                    <Frame Grid.Row="4" Grid.Column="1" Background="AntiqueWhite"  CornerRadius="2" Margin="0" Padding="2" HeightRequest="25">
+                        <Label x:Name="TrialNumberValueLabel" 
+                       HorizontalOptions="Fill" VerticalOptions="Fill"
+                       HorizontalTextAlignment="Center"
+                       VerticalTextAlignment="Center"
+                          Text="">
+                        </Label>
+                    </Frame>
+
+                    <Label x:Name="FinalResultNameLabel" 
+                       Grid.Row="5" Grid.Column="0" 
+                       HorizontalOptions="Fill" VerticalOptions="Fill"
+                       HorizontalTextAlignment="Start"
+                       VerticalTextAlignment="Center"
+                           Text="SRT:"
+                           TextColor="AntiqueWhite"
+                           FontAttributes="Bold">
+                    </Label>
+
+                    <Frame Grid.Row="5" Grid.Column="1" Background="AntiqueWhite"  CornerRadius="2" Margin="0" Padding="2" HeightRequest="25">
+                        <Label x:Name="FinalResultValueLabel" 
+                       HorizontalOptions="Fill" VerticalOptions="Fill"
+                       HorizontalTextAlignment="Center"
+                       VerticalTextAlignment="Center"
+                          Text=""
+                               FontAttributes="Bold">
+                        </Label>
+                    </Frame>
+
+                </Grid>
+
+            </Frame>
+
+            <Frame x:Name="SnrFrame" 
+                   Grid.Row="0" Grid.RowSpan="1"
+                   Grid.Column="1" Grid.ColumnSpan="1" 
+                   Margin="3" Padding="0"
+                   Background="White">
+
+                <Grid x:Name="SnrGrid"
+                  Grid.Row="0" Grid.RowSpan="1"
+                  Grid.Column="2" Grid.ColumnSpan="1">
+
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="1*" />
+                        <RowDefinition Height="40" />
+                    </Grid.RowDefinitions>
+
+                    <GraphicsView x:Name="SnrView"
+                        Grid.Row="0" Grid.RowSpan="1"
+                        Grid.Column="0" Grid.ColumnSpan="1"
+                        HorizontalOptions="Fill"
+                        VerticalOptions="Fill"
+                        Margin="20,0,0,0"/>
+
+                    <Label x:Name="SnrGridLabelY" 
+                       Grid.Row="0" Grid.Column="0" 
+                       HorizontalOptions="Start"  VerticalOptions="Center"
+                       HorizontalTextAlignment="Center"
+                       VerticalTextAlignment="Center"
+                       Rotation="-90"
+                       Text="PNR (dB)"
+                       FontAttributes="Bold">
+                    </Label>
+
+
+                    <Label x:Name="SnrGridLabelX" 
+                       Grid.Row="1" Grid.Column="1" 
+                       HorizontalOptions="Fill" VerticalOptions="Fill"
+                       HorizontalTextAlignment="Center"
+                       VerticalTextAlignment="Center"
+                       Text="Test trial"
+                       FontAttributes="Bold"
+                       Margin="70,0,0,7">
+                    </Label>
+
+                </Grid>
+
+            </Frame>
+
+        </Grid>
+
+
+
+        <!--<Grid>
+            --><!-- Keep x:Name for the labels INSIDE this control, it's fine --><!--
+            <Label x:Name="TwgValueLabel" />
+            <Label x:Name="TargetScoreValueLabel" />
+            <Label x:Name="ReferenceLevelValueLabel" />
+            <Label x:Name="AdaptiveLevelValueLabel" />
+            <Label x:Name="TrialNumberValueLabel" />
+            <Label x:Name="FinalResultValueLabel" />
+
+            <GraphicsView x:Name="SnrView" />
+        </Grid>-->
+        
+        
+    </Frame>
+</ContentView>

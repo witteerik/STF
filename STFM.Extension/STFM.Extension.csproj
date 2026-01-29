@@ -33,12 +33,26 @@
 
 	<ItemGroup>
 	  <Folder Include="Drawables\" />
-	  <Folder Include="Views\" />
 	</ItemGroup>
 
 	<ItemGroup>
 	  <ProjectReference Include="..\STFM.Core\STFM.Core.csproj" />
 	  <ProjectReference Include="..\STFN.Extension\STFN.Extension.vbproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Compile Update="Views\TestResultView_MultiAdaptiveSiP.xaml.cs">
+	    <DependentUpon>TestResultView_MultiAdaptiveSiP.xaml</DependentUpon>
+	  </Compile>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <MauiXaml Update="Views\TestResultView_MultiAdaptiveSiP.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Views\TwgPanelView.xaml">
+	    <Generator></Generator>
+	  </MauiXaml>
 	</ItemGroup>
 	
 	<!--<ItemGroup>

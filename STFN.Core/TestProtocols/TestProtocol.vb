@@ -15,6 +15,12 @@ Public MustInherit Class TestProtocol
 
     Public MustOverride ReadOnly Property Information As String
 
+    ''' <summary>
+    ''' This string can be used by the calling code to store information concerning which stimuli the test protocol is used for, or other information that needs to be passed on by the test protocol to the using code.
+    ''' </summary>
+    ''' <returns></returns>
+    Public Property TargetStimulusSet As String = ""
+
     Public MustOverride Function GetPatientInstructions() As String
 
     ''' <summary>
