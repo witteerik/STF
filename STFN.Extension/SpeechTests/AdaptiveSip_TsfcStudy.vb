@@ -564,16 +564,7 @@ Public Class AdaptiveSip_TsfcStudy
 
                 'Stopping after X reversals
                 If Math.Abs(ProtocolReply.AdaptiveReversalCount.Value) > 15 Then
-
-                    'Noting the test protocol / test unit as completed
-                    TestProtocolCompleted(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation) = True
-
-                    If AllProtocolsCompleted() Then
-                        Return SpeechTestReplies.TestIsCompleted
-                    Else
-                        Return SpeechTestReplies.GotoNextTrial
-                    End If
-
+                    Return TestUnitCompleted(EvaluationTrials)
                 End If
 
                 'Or stopping when the adaptive levels plateau
@@ -584,31 +575,13 @@ Public Class AdaptiveSip_TsfcStudy
 
                     'Stopping when the adaptive level range falls under 1 dB  
                     If Math.Abs(LastLevelSteps.Max - LastLevelSteps.Min) < 1 Then
-
-                        'Noting the test protocol / test unit as completed
-                        TestProtocolCompleted(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation) = True
-
-                        If AllProtocolsCompleted() Then
-                            Return SpeechTestReplies.TestIsCompleted
-                        Else
-                            Return SpeechTestReplies.GotoNextTrial
-                        End If
-
+                        Return TestUnitCompleted(EvaluationTrials)
                     End If
                 End If
 
                 'Or if the trial length limit is reached
                 If EvaluationTrials.Count > MaximumTestTrials Then
-
-                    'Noting the test protocol / test unit as completed
-                    TestProtocolCompleted(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation) = True
-
-                    If AllProtocolsCompleted() Then
-                        Return SpeechTestReplies.TestIsCompleted
-                    Else
-                        Return SpeechTestReplies.GotoNextTrial
-                    End If
-
+                    Return TestUnitCompleted(EvaluationTrials)
                 End If
 
             Else
@@ -621,7 +594,6 @@ Public Class AdaptiveSip_TsfcStudy
 
         End If
 
-
         'Clamping the adaptive value
         ProtocolReply.AdaptiveValue = Math.Clamp(ProtocolReply.AdaptiveValue.Value, MinPNR, MaxPNR)
 
@@ -631,6 +603,32 @@ Public Class AdaptiveSip_TsfcStudy
         End If
 
         Return ProtocolReply.Decision
+
+    End Function
+
+    Public Function TestUnitCompleted(EvaluationTrials As TestTrialCollection) As SpeechTestReplies
+
+        'Noting the test protocol / test unit as completed
+        TestProtocolCompleted(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation) = True
+
+        'Removing the remaining test trials fro mthe completed test unit
+        Dim RemainingTrials As New List(Of SipTrial)
+        For Each Trial In CurrentSipTestMeasurement.PlannedTrials
+            If Trial.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation <> EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation Then
+                RemainingTrials.Add(Trial)
+            End If
+        Next
+
+        'Swapping the planned trials with the remaining trials
+        CurrentSipTestMeasurement.PlannedTrials = RemainingTrials
+
+        If AllProtocolsCompleted() Then
+            'Returns TestIsCompleted if all test units are completed
+            Return SpeechTestReplies.TestIsCompleted
+        Else
+            'Or GotoNextTrial if there are remaining test units
+            Return SpeechTestReplies.GotoNextTrial
+        End If
 
     End Function
 
