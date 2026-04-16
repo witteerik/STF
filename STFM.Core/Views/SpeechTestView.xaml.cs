@@ -871,8 +871,8 @@ public partial class SpeechTestView : ContentView, IDrawable
                                     TestResultPage NewTestResultPage = new TestResultPage(ref CurrentTestResultsView);
                                     CurrentExternalTestResultWindow = new Window(NewTestResultPage);
                                     CurrentExternalTestResultWindow.Title = SpeechTestInitiator.ExtraWindowTitle;
-                                    CurrentExternalTestResultWindow.Height = 240;
-                                    CurrentExternalTestResultWindow.Width = 1200;
+                                    CurrentExternalTestResultWindow.Height = SpeechTestInitiator.ExtraWindowHeight;
+                                    CurrentExternalTestResultWindow.Width = SpeechTestInitiator.ExtraWindowWidth;
                                     Application.Current.OpenWindow(CurrentExternalTestResultWindow);
 
                                 }

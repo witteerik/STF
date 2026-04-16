@@ -328,6 +328,10 @@ namespace STFM
 
         public string ExtraWindowTitle { get; set; } = "";
 
+        public float ExtraWindowHeight {get; set;} = 240;
+
+        public float ExtraWindowWidth { get; set; } = 1200;
+
         public SpeechTestInitiator() { }
 
 

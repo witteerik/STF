@@ -134,6 +134,7 @@ namespace STFM.Extension
                     {
                         speechTestInitiator.GuiLayoutState = SpeechTestView.GuiLayoutStates.TestOptions_StartButton_TestResultsOffForm;
                         speechTestInitiator.UseExtraWindow = true;
+                        speechTestInitiator.ExtraWindowHeight = 800;
                         switch (SharedSpeechTestObjects.GuiLanguage)
                         {
                             case STFN.Core.Utils.EnumCollection.Languages.Swedish:
@@ -179,6 +180,7 @@ namespace STFM.Extension
                     {
                         speechTestInitiator.GuiLayoutState = SpeechTestView.GuiLayoutStates.TestOptions_StartButton_TestResultsOffForm;
                         speechTestInitiator.UseExtraWindow = true;
+                        speechTestInitiator.ExtraWindowHeight = 800;
                         switch (SharedSpeechTestObjects.GuiLanguage)
                         {
                             case STFN.Core.Utils.EnumCollection.Languages.Swedish:
@@ -224,6 +226,7 @@ namespace STFM.Extension
                     {
                         speechTestInitiator.GuiLayoutState = SpeechTestView.GuiLayoutStates.TestOptions_StartButton_TestResultsOffForm;
                         speechTestInitiator.UseExtraWindow = true;
+                        speechTestInitiator.ExtraWindowHeight = 800;
                         switch (SharedSpeechTestObjects.GuiLanguage)
                         {
                             case STFN.Core.Utils.EnumCollection.Languages.Swedish:
@@ -268,6 +271,7 @@ namespace STFM.Extension
                     {
                         speechTestInitiator.GuiLayoutState = SpeechTestView.GuiLayoutStates.TestOptions_StartButton_TestResultsOffForm;
                         speechTestInitiator.UseExtraWindow = true;
+                        speechTestInitiator.ExtraWindowHeight = 800;
                         switch (SharedSpeechTestObjects.GuiLanguage)
                         {
                             case STFN.Core.Utils.EnumCollection.Languages.Swedish:
