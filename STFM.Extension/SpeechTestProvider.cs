@@ -110,17 +110,18 @@ namespace STFM.Extension
 
                 case "SiP-testet (TSFC Adaptive)":
 
-                    // Using this to start building the adaptive SiP-test versions used in the TSFC study
+                    // TSFC study adaptive TSFC SiP-test
 
                     // Selecting the speech material name
                     speechTestInitiator.SelectedSpeechMaterialName = "Swedish SiP-test"; // Leave as an empty string if the user should select manually
 
                     // Creating the speech test instance, and also stores it in SharedSpeechTestObjects
-                    speechTestInitiator.SpeechTest = new STFN.Extension.AdaptiveSip_TsfcStudy(speechTestInitiator.SelectedSpeechMaterialName);
+                    speechTestInitiator.SpeechTest = new STFN.Extension.SipTest_TsfcStudy(speechTestInitiator.SelectedSpeechMaterialName);
                     SharedSpeechTestObjects.CurrentSpeechTest = speechTestInitiator.SpeechTest;
 
                     // Setting IsTSFC to true
-                    ((STFN.Extension.AdaptiveSip_TsfcStudy)SharedSpeechTestObjects.CurrentSpeechTest).IsTSFC = true;
+                    ((STFN.Extension.SipTest_TsfcStudy)SharedSpeechTestObjects.CurrentSpeechTest).IsTSFC = true;
+                    ((STFN.Extension.SipTest_TsfcStudy)SharedSpeechTestObjects.CurrentSpeechTest).IsAdaptive = true;
 
                     // Creating a test options view
                     speechTestInitiator.TestOptionsView = new OptionsViewAll(speechTestInitiator.SpeechTest);
@@ -154,17 +155,18 @@ namespace STFM.Extension
 
                 case "SiP-testet (MAFC Adaptive)":
 
-                    // Using this to start building the adaptive SiP-test versions used in the TSFC study
+                    // TSFC study adaptive MAFC SiP-test
 
                     // Selecting the speech material name
                     speechTestInitiator.SelectedSpeechMaterialName = "Swedish SiP-test"; // Leave as an empty string if the user should select manually
 
                     // Creating the speech test instance, and also stores it in SharedSpeechTestObjects
-                    speechTestInitiator.SpeechTest = new STFN.Extension.AdaptiveSip_TsfcStudy(speechTestInitiator.SelectedSpeechMaterialName);
+                    speechTestInitiator.SpeechTest = new STFN.Extension.SipTest_TsfcStudy(speechTestInitiator.SelectedSpeechMaterialName);
                     SharedSpeechTestObjects.CurrentSpeechTest = speechTestInitiator.SpeechTest;
 
                     // Setting IsTSFC to false
-                    ((STFN.Extension.AdaptiveSip_TsfcStudy)SharedSpeechTestObjects.CurrentSpeechTest).IsTSFC = false;
+                    ((STFN.Extension.SipTest_TsfcStudy)SharedSpeechTestObjects.CurrentSpeechTest).IsTSFC = false;
+                    ((STFN.Extension.SipTest_TsfcStudy)SharedSpeechTestObjects.CurrentSpeechTest).IsAdaptive = true;
 
                     // Creating a test options view
                     speechTestInitiator.TestOptionsView = new OptionsViewAll(speechTestInitiator.SpeechTest);
@@ -198,8 +200,91 @@ namespace STFM.Extension
 
                 case "SiP-testet (TSFC Fixed)":
 
+                    // TSFC study constant-stimuli TSFC SiP-test
+
+                    // Selecting the speech material name
+                    speechTestInitiator.SelectedSpeechMaterialName = "Swedish SiP-test"; // Leave as an empty string if the user should select manually
+
+                    // Creating the speech test instance, and also stores it in SharedSpeechTestObjects
+                    speechTestInitiator.SpeechTest = new STFN.Extension.SipTest_TsfcStudy(speechTestInitiator.SelectedSpeechMaterialName);
+                    SharedSpeechTestObjects.CurrentSpeechTest = speechTestInitiator.SpeechTest;
+
+                    // Setting IsTSFC to true
+                    ((STFN.Extension.SipTest_TsfcStudy)SharedSpeechTestObjects.CurrentSpeechTest).IsTSFC = true;
+                    ((STFN.Extension.SipTest_TsfcStudy)SharedSpeechTestObjects.CurrentSpeechTest).IsAdaptive = false;
+
+                    // Creating a test options view
+                    speechTestInitiator.TestOptionsView = new OptionsViewAll(speechTestInitiator.SpeechTest);
+
+                    // Creating a test results view
+                    speechTestInitiator.TestResultsView = new TestResultView_MultiFixedSiP();
+
+                    // Determining the GuiLayoutState
+                    if (Globals.StfBase.CurrentPlatForm == Platforms.WinUI & Globals.StfBase.UseExtraWindows == true)
+                    {
+                        speechTestInitiator.GuiLayoutState = SpeechTestView.GuiLayoutStates.TestOptions_StartButton_TestResultsOffForm;
+                        speechTestInitiator.UseExtraWindow = true;
+                        switch (SharedSpeechTestObjects.GuiLanguage)
+                        {
+                            case STFN.Core.Utils.EnumCollection.Languages.Swedish:
+                                speechTestInitiator.ExtraWindowTitle = "Testresultat";
+                                break;
+                            default:
+                                speechTestInitiator.ExtraWindowTitle = "Test Results Window";
+                                break;
+                        }
+                    }
+                    else
+                    {
+                        speechTestInitiator.GuiLayoutState = SpeechTestView.GuiLayoutStates.TestOptions_StartButton_TestResultsOnForm;
+                        speechTestInitiator.UseExtraWindow = false;
+                    }
+
+                    return speechTestInitiator;
+
                 case "SiP-testet (MAFC Fixed)":
 
+                    // TSFC study constant-stimuli MAFC SiP-test
+
+                    // Selecting the speech material name
+                    speechTestInitiator.SelectedSpeechMaterialName = "Swedish SiP-test"; // Leave as an empty string if the user should select manually
+
+                    // Creating the speech test instance, and also stores it in SharedSpeechTestObjects
+                    speechTestInitiator.SpeechTest = new STFN.Extension.SipTest_TsfcStudy(speechTestInitiator.SelectedSpeechMaterialName);
+                    SharedSpeechTestObjects.CurrentSpeechTest = speechTestInitiator.SpeechTest;
+
+                    // Setting IsTSFC to false
+                    ((STFN.Extension.SipTest_TsfcStudy)SharedSpeechTestObjects.CurrentSpeechTest).IsTSFC = false;
+                    ((STFN.Extension.SipTest_TsfcStudy)SharedSpeechTestObjects.CurrentSpeechTest).IsAdaptive = false;
+
+                    // Creating a test options view
+                    speechTestInitiator.TestOptionsView = new OptionsViewAll(speechTestInitiator.SpeechTest);
+
+                    // Creating a test results view
+                    speechTestInitiator.TestResultsView = new TestResultView_MultiFixedSiP();
+
+                    // Determining the GuiLayoutState
+                    if (Globals.StfBase.CurrentPlatForm == Platforms.WinUI & Globals.StfBase.UseExtraWindows == true)
+                    {
+                        speechTestInitiator.GuiLayoutState = SpeechTestView.GuiLayoutStates.TestOptions_StartButton_TestResultsOffForm;
+                        speechTestInitiator.UseExtraWindow = true;
+                        switch (SharedSpeechTestObjects.GuiLanguage)
+                        {
+                            case STFN.Core.Utils.EnumCollection.Languages.Swedish:
+                                speechTestInitiator.ExtraWindowTitle = "Testresultat";
+                                break;
+                            default:
+                                speechTestInitiator.ExtraWindowTitle = "Test Results Window";
+                                break;
+                        }
+                    }
+                    else
+                    {
+                        speechTestInitiator.GuiLayoutState = SpeechTestView.GuiLayoutStates.TestOptions_StartButton_TestResultsOnForm;
+                        speechTestInitiator.UseExtraWindow = false;
+                    }
+
+                    return speechTestInitiator;
 
 
 

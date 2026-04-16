@@ -8,6 +8,7 @@ using STFM.Pages;
 using STFM.SpecializedViews.SSQ12;
 using STFN.Core;
 using System.Reflection;
+using System.Security.AccessControl;
 using static STFN.Core.ResponseViewEvents;
 
 namespace STFM.Views;
@@ -1563,6 +1564,12 @@ public partial class SpeechTestView : ContentView, IDrawable
         // StfBase.SoundPlayer.PrepareNewOutputSounds(ref CurrentSpeechTest.CurrentTestTrial.Sound);
 
         testTrialEventTimerList = new List<IDispatcherTimer>();
+
+        // Aborts if there is no TrialEventList, to avoid crash
+        if (CurrentSpeechTest.CurrentTestTrial.TrialEventList == null)
+        {
+            return;  
+        }
 
         foreach (var trialEvent in CurrentSpeechTest.CurrentTestTrial.TrialEventList)
         {

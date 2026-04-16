@@ -49,10 +49,10 @@ Public Class AdaptiveSiP
         ShowGuiChoice_BackgroundNonSpeechLocations = False
         ShowGuiChoice_BackgroundSpeechLocations = False
 
-        MinimumStimulusOnsetTime = 0.3 + 0.3 ' 0.3 in sound field
-        MaximumStimulusOnsetTime = 0.8 + 0.3 ' 0.3 in sound field
+        MinimumStimulusOnsetTime = 0.1
+        MaximumStimulusOnsetTime = 0.3
 
-        ResponseAlternativeDelay = 0.1
+        'ResponseAlternativeDelay = 0.1
 
         SupportsManualPausing = True
 

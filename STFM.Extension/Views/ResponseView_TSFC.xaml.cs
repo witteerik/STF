@@ -17,8 +17,6 @@ public partial class ResponseView_TSFC : ResponseView
 
     private IDispatcherTimer HideAllTimer;
 
-
-    bool isPressed = false;
     public ResponseView_TSFC()
 	{
 		InitializeComponent();

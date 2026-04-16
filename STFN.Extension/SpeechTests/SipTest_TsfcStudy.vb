@@ -10,7 +10,7 @@ Imports STFN.Core.SipTest
 Imports STFN.Core.Utils
 
 
-Public Class AdaptiveSip_TsfcStudy
+Public Class SipTest_TsfcStudy
     Inherits SipBaseSpeechTest
 
     Public Overrides ReadOnly Property FilePathRepresentation As String = "SiP_Tsfc"
@@ -26,13 +26,14 @@ Public Class AdaptiveSip_TsfcStudy
     Private IgnoreNegativeCoordinates As Boolean = False
 
     Private TestProtocols As Dictionary(Of String, TestProtocol)
-    Private TestProtocolCompleted As Dictionary(Of String, Boolean)
+    Private TestProtocolCompleted As New Dictionary(Of String, Boolean)
     Private AdaptiveLevelHistory As Dictionary(Of String, List(Of Double))
 
 
 
     Public IsTSFC As Boolean = False
 
+    Public IsAdaptive As Boolean = False
 
     'Setting the sound source locations
     Private SipTargetStimulusLocations As SoundSourceLocation() = {New SoundSourceLocation With {.HorizontalAzimuth = 0, .Distance = 3}}
@@ -121,6 +122,11 @@ Public Class AdaptiveSip_TsfcStudy
         SupportsManualPausing = True
 
         GuiResultType = GuiResultTypes.VisualResults
+
+        MinimumStimulusOnsetTime = 0.3 + 0.3 ' 0.3 in sound field
+        MaximumStimulusOnsetTime = 0.8 + 0.3 ' 0.3 in sound field
+        ResponseAlternativeDelay = 0.1
+
 
     End Sub
 
@@ -240,9 +246,6 @@ Public Class AdaptiveSip_TsfcStudy
 
     Private Sub PlanSiPTrials(ByVal SoundPropagationType As SoundPropagationTypes, Optional ByVal RandomSeed As Integer? = Nothing)
 
-        TestProtocols = New Dictionary(Of String, TestProtocol)
-        AdaptiveLevelHistory = New Dictionary(Of String, List(Of Double))
-
         Dim AllMediaSets As List(Of MediaSet) = AvailableMediasets
 
         Dim SelectedMediaSets As New List(Of MediaSet)
@@ -259,71 +262,142 @@ Public Class AdaptiveSip_TsfcStudy
         'Getting the preset
         Dim Preset = CurrentSipTestMeasurement.ParentTestSpecification.SpeechMaterial.Presets.GetPreset(PresetName).Members
 
-        'Adding trials into TestUnits. One TestUnit for each test word group.
-        For Each TWG In Preset
+        If IsAdaptive = False Then
 
-            'Creating a new test unit
-            Dim NewTestUnit = New SiPTestUnit(CurrentSipTestMeasurement, TWG.PrimaryStringRepresentation)
+            Dim FixedPnrs As New SortedList(Of String, Double())
+            For Each TWG In Preset
+                ' TODO: Add the PNRs to test for each specific TWG
+                FixedPnrs.Add(TWG.PrimaryStringRepresentation, {-10, -5, 0, 5})
+            Next
 
-            'Getting the test words (i.e. sentence level components)
-            Dim TestWords = TWG.GetChildren
 
-            'Adding test section trials
-            For i = 0 To TestSectionTripletCount - 1
+            'Adding trials into TestUnits. One TestUnit for each test word group.
+            For Each TWG In Preset
 
-                'Getting a vector of test word indices to draw
-                Dim RandomIndices = STFN.Core.DSP.SampleWithoutReplacement(TestWords.Count, 0, TestWords.Count)
+                'Creating a new test unit
+                Dim NewTestUnit = New SiPTestUnit(CurrentSipTestMeasurement, TWG.PrimaryStringRepresentation)
 
-                For Each RandomIndex In RandomIndices
+                For Each FixedPnr In FixedPnrs(TWG.PrimaryStringRepresentation)
 
-                    'Creating the trial
-                    Dim NewTestTrial As New SipTrial(NewTestUnit, TestWords(RandomIndex), SelectedMediaSets.First, SoundPropagationType,
+                    'Getting the test words (i.e. sentence level components)
+                    Dim TestWords = TWG.GetChildren
+
+                    'Adding test section trials
+                    For i = 0 To TestSectionTripletCount - 1
+
+                        'Getting a vector of test word indices to draw
+                        Dim RandomIndices = STFN.Core.DSP.SampleWithoutReplacement(TestWords.Count, 0, TestWords.Count)
+
+                        For Each RandomIndex In RandomIndices
+
+                            'Creating the trial
+                            Dim NewTestTrial As New SipTrial(NewTestUnit, TestWords(RandomIndex), SelectedMediaSets.First, SoundPropagationType,
+                                                     SipTargetStimulusLocations, SipMaskerLocations, SipBackgroundLocations, CurrentSipTestMeasurement.Randomizer)
+
+                            'Setting the presentation levels
+                            NewTestTrial.SetLevels(ReferenceLevel, FixedPnr)
+
+                            'Storing IsTSFC in every trial
+                            NewTestTrial.IsTSFCTrial = IsTSFC
+
+                            'Adding the trial to the test unit
+                            NewTestUnit.PlannedTrials.Add(NewTestTrial)
+
+                            'And also directly to the planned trials
+                            CurrentSipTestMeasurement.PlannedTrials.Add(NewTestTrial)
+
+                        Next
+                    Next
+                Next
+
+                'Adding the test unit
+                CurrentSipTestMeasurement.TestUnits.Add(NewTestUnit)
+
+            Next
+
+            'Randomizing the order of test trials stored in CurrentSipTestMeasurement.PlannedTrials, from which to draw then during the test
+            Dim SampleOrder = DSP.SampleWithoutReplacement(CurrentSipTestMeasurement.PlannedTrials.Count, 0, CurrentSipTestMeasurement.PlannedTrials.Count, Randomizer)
+            Dim ShuffledTrials As New List(Of SipTrial)
+            For Each RandomIndex In SampleOrder
+                ShuffledTrials.Add(CurrentSipTestMeasurement.PlannedTrials(RandomIndex))
+            Next
+            CurrentSipTestMeasurement.PlannedTrials = ShuffledTrials
+
+        Else
+
+            TestProtocols = New Dictionary(Of String, TestProtocol)
+            AdaptiveLevelHistory = New Dictionary(Of String, List(Of Double))
+
+            'Adding trials into TestUnits. One TestUnit for each test word group.
+            For Each TWG In Preset
+
+                'Creating a new test unit
+                Dim NewTestUnit = New SiPTestUnit(CurrentSipTestMeasurement, TWG.PrimaryStringRepresentation)
+
+                'Getting the test words (i.e. sentence level components)
+                Dim TestWords = TWG.GetChildren
+
+                'Adding test section trials
+                For i = 0 To TestSectionTripletCount - 1
+
+                    'Getting a vector of test word indices to draw
+                    Dim RandomIndices = STFN.Core.DSP.SampleWithoutReplacement(TestWords.Count, 0, TestWords.Count)
+
+                    For Each RandomIndex In RandomIndices
+
+                        'Creating the trial
+                        Dim NewTestTrial As New SipTrial(NewTestUnit, TestWords(RandomIndex), SelectedMediaSets.First, SoundPropagationType,
                                                  SipTargetStimulusLocations, SipMaskerLocations, SipBackgroundLocations, CurrentSipTestMeasurement.Randomizer)
 
-                    'Storing IsTSFC in every trial
-                    NewTestTrial.IsTSFCTrial = IsTSFC
+                        'Storing IsTSFC in every trial
+                        NewTestTrial.IsTSFCTrial = IsTSFC
 
-                    'Adding the trial
-                    NewTestUnit.PlannedTrials.Add(NewTestTrial)
+                        'Adding the trial
+                        NewTestUnit.PlannedTrials.Add(NewTestTrial)
 
+                    Next
+                Next
+
+                'Adding the test unit
+                CurrentSipTestMeasurement.TestUnits.Add(NewTestUnit)
+
+                'Also creating test protocols
+                'Setting test protocol, including estimated slope and target score
+                Dim NewTestProtocol = New STFN.Core.BrandKollmeier2002_TestProtocol
+                NewTestProtocol.Slope = 0.034
+                If IgnoreNegativeCoordinates = True Then
+                    NewTestProtocol.TargetScore = 0.5
+                Else
+                    NewTestProtocol.TargetScore = 2 / 3
+                End If
+                NewTestProtocol.EnsureSentenceTest = False
+                'Storing the TWG.PrimaryStringRepresentation in the test protocol's TargetStimulusSet
+                NewTestProtocol.TargetStimulusSet = TWG.PrimaryStringRepresentation
+
+                TestProtocols.Add(TWG.PrimaryStringRepresentation, NewTestProtocol)
+
+                'Also adds the key to AdaptiveLevelHistory 
+                AdaptiveLevelHistory.Add(TWG.PrimaryStringRepresentation, New List(Of Double))
+
+                'Adding test test-word groups to TestProtocolCompleted
+                TestProtocolCompleted.Add(TWG.PrimaryStringRepresentation, False)
+
+            Next
+
+            'Adding test test trials. Interleaving trials across test units: for each trial position, adding one trial per unit in random order
+            'Adding the trials to CurrentSipTestMeasurement PlannedTrials (from which they can be drawn during testing)
+            For testUnitTrialIndex = 0 To CurrentSipTestMeasurement.TestUnits(0).PlannedTrials.Count - 1
+
+                'Getting a vector of test unit indices to draw
+                Dim RandomIndices = STFN.Core.DSP.SampleWithoutReplacement(CurrentSipTestMeasurement.TestUnits.Count, 0, CurrentSipTestMeasurement.TestUnits.Count)
+
+                'Adding to CurrentSipTestMeasurement.PlannedTrials in random order, each testUnitTrialIndex at a time
+                For testUnitIndex = 0 To RandomIndices.Count - 1
+                    CurrentSipTestMeasurement.PlannedTrials.Add(CurrentSipTestMeasurement.TestUnits(RandomIndices(testUnitIndex)).PlannedTrials(testUnitTrialIndex))
                 Next
             Next
 
-            'Adding the test unit
-            CurrentSipTestMeasurement.TestUnits.Add(NewTestUnit)
-
-            'Also creating test protocols
-            'Setting test protocol, including estimated slope and target score
-            Dim NewTestProtocol = New STFN.Core.BrandKollmeier2002_TestProtocol
-            NewTestProtocol.Slope = 0.034
-            If IgnoreNegativeCoordinates = True Then
-                NewTestProtocol.TargetScore = 0.5
-            Else
-                NewTestProtocol.TargetScore = 2 / 3
-            End If
-            NewTestProtocol.EnsureSentenceTest = False
-            'Storing the TWG.PrimaryStringRepresentation in the test protocol's TargetStimulusSet
-            NewTestProtocol.TargetStimulusSet = TWG.PrimaryStringRepresentation
-
-            TestProtocols.Add(TWG.PrimaryStringRepresentation, NewTestProtocol)
-
-            'Also adds the key to AdaptiveLevelHistory 
-            AdaptiveLevelHistory.Add(TWG.PrimaryStringRepresentation, New List(Of Double))
-
-        Next
-
-        'Adding test test trials. Interleaving trials across test units: for each trial position, adding one trial per unit in random order
-        'Adding the trials to CurrentSipTestMeasurement PlannedTrials (from which they can be drawn during testing)
-        For testUnitTrialIndex = 0 To CurrentSipTestMeasurement.TestUnits(0).PlannedTrials.Count - 1
-
-            'Getting a vector of test unit indices to draw
-            Dim RandomIndices = STFN.Core.DSP.SampleWithoutReplacement(CurrentSipTestMeasurement.TestUnits.Count, 0, CurrentSipTestMeasurement.TestUnits.Count)
-
-            'Adding to CurrentSipTestMeasurement.PlannedTrials in random order, each testUnitTrialIndex at a time
-            For testUnitIndex = 0 To RandomIndices.Count - 1
-                CurrentSipTestMeasurement.PlannedTrials.Add(CurrentSipTestMeasurement.TestUnits(RandomIndices(testUnitIndex)).PlannedTrials(testUnitTrialIndex))
-            Next
-        Next
+        End If
 
     End Sub
 
@@ -521,88 +595,97 @@ Public Class AdaptiveSip_TsfcStudy
         'Preparing the next trial
         CurrentTestTrial = CurrentSipTestMeasurement.GetNextTrial()
 
-        'Calculating the speech level
-        Dim ProtocolReply As TestProtocol.NextTaskInstruction = Nothing
+        If IsAdaptive = False Then
 
-        Dim CurrentSipTrials = DirectCast(CurrentTestTrial, SipTrial).ParentTestUnit.ObservedTrials
-
-        Dim EvaluationTrials As New TestTrialCollection
-        For Each Trial In CurrentSipTrials
-            EvaluationTrials.Add(Trial)
-        Next
-
-        'Initializing the test protocol of this test unit
-        If EvaluationTrials.Count = 0 Then
-            Dim TestUnitPlannedTrials = DirectCast(CurrentTestTrial, SipTrial).ParentTestUnit.PlannedTrials
-            TestProtocols(TestUnitPlannedTrials.First.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation).InitializeProtocol(
-            New TestProtocol.NextTaskInstruction With {.AdaptiveValue = StartAdaptiveLevel, .TestLength = TestUnitPlannedTrials.Count})
-
-            'We are in the ballpark stage of this test unit
-            ProtocolReply = New TestProtocol.NextTaskInstruction()
-            ProtocolReply.Decision = SpeechTestReplies.GotoNextTrial
-            ProtocolReply.AdaptiveValue = StartAdaptiveLevel
-            ProtocolReply.AdaptiveStepSize = 0 'TODO. Check if this value is relevant!
+            PrepareNextTrial(New Core.TestProtocol.NextTaskInstruction With {.TestStage = 0}) ' TODO: We probably don't need to set a value for TestStage here...
+            Return SpeechTestReplies.GotoNextTrial
 
         Else
 
-            'Using the selected test protocol
-            'Determining if the level should be update. 
-            Dim AdaptiveEvaluationLength As Integer = 1
-            If EvaluationTrials.Last.IsTSFCTrial = False Then
-                'TODO Consider if this should be 3 in the MAFC test
-                AdaptiveEvaluationLength = 1
-            End If
+            'Calculating the speech level
+            Dim ProtocolReply As TestProtocol.NextTaskInstruction = Nothing
 
-            If (EvaluationTrials.Count - AdaptiveEvaluationLength) Mod AdaptiveEvaluationLength = 0 Then
+            Dim CurrentSipTrials = DirectCast(CurrentTestTrial, SipTrial).ParentTestUnit.ObservedTrials
 
-                'Setting EvaluationTrialCount so that EvaluationTrials.GetObservedScore returns the average of the three last trials in the test unti
-                EvaluationTrials.EvaluationTrialCount = AdaptiveEvaluationLength
-                ProtocolReply = TestProtocols(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation).NewResponse(EvaluationTrials)
+            Dim EvaluationTrials As New TestTrialCollection
+            For Each Trial In CurrentSipTrials
+                EvaluationTrials.Add(Trial)
+            Next
 
-                'Adding the adaptive level to the AdaptiveLevelHistory 
-                AdaptiveLevelHistory(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation).Add(ProtocolReply.AdaptiveValue)
+            'Initializing the test protocol of this test unit
+            If EvaluationTrials.Count = 0 Then
+                Dim TestUnitPlannedTrials = DirectCast(CurrentTestTrial, SipTrial).ParentTestUnit.PlannedTrials
+                TestProtocols(TestUnitPlannedTrials.First.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation).InitializeProtocol(
+                New TestProtocol.NextTaskInstruction With {.AdaptiveValue = StartAdaptiveLevel, .TestLength = TestUnitPlannedTrials.Count})
 
-                'Stopping after X reversals
-                If Math.Abs(ProtocolReply.AdaptiveReversalCount.Value) > 15 Then
-                    Return TestUnitCompleted(EvaluationTrials)
-                End If
-
-                'Or stopping when the adaptive levels plateau
-                Dim AdaptiveLevelStepStoppingCriteriumLength As Integer = 5
-                Dim EvaluationList = AdaptiveLevelHistory(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation)
-                If EvaluationList.Count > AdaptiveLevelStepStoppingCriteriumLength Then
-                    Dim LastLevelSteps = EvaluationList.GetRange(EvaluationList.Count - AdaptiveLevelStepStoppingCriteriumLength, AdaptiveLevelStepStoppingCriteriumLength)
-
-                    'Stopping when the adaptive level range falls under 1 dB  
-                    If Math.Abs(LastLevelSteps.Max - LastLevelSteps.Min) < 1 Then
-                        Return TestUnitCompleted(EvaluationTrials)
-                    End If
-                End If
-
-                'Or if the trial length limit is reached
-                If EvaluationTrials.Count > MaximumTestTrials Then
-                    Return TestUnitCompleted(EvaluationTrials)
-                End If
-
-            Else
-                'Simply reusing the level from the previous trial
+                'We are in the ballpark stage of this test unit
                 ProtocolReply = New TestProtocol.NextTaskInstruction()
                 ProtocolReply.Decision = SpeechTestReplies.GotoNextTrial
-                ProtocolReply.AdaptiveValue = DirectCast(EvaluationTrials.Last, SipTrial).PNR
-                ProtocolReply.AdaptiveStepSize = 0
+                ProtocolReply.AdaptiveValue = StartAdaptiveLevel
+                ProtocolReply.AdaptiveStepSize = 0 'TODO. Check if this value is relevant!
+
+            Else
+
+                'Using the selected test protocol
+                'Determining if the level should be update. 
+                Dim AdaptiveEvaluationLength As Integer = 1
+                If EvaluationTrials.Last.IsTSFCTrial = False Then
+                    'TODO Consider if this should be 3 in the MAFC test
+                    AdaptiveEvaluationLength = 1
+                End If
+
+                If (EvaluationTrials.Count - AdaptiveEvaluationLength) Mod AdaptiveEvaluationLength = 0 Then
+
+                    'Setting EvaluationTrialCount so that EvaluationTrials.GetObservedScore returns the average of the three last trials in the test unti
+                    EvaluationTrials.EvaluationTrialCount = AdaptiveEvaluationLength
+                    ProtocolReply = TestProtocols(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation).NewResponse(EvaluationTrials)
+
+                    'Adding the adaptive level to the AdaptiveLevelHistory 
+                    AdaptiveLevelHistory(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation).Add(ProtocolReply.AdaptiveValue)
+
+                    'Stopping after X reversals
+                    If Math.Abs(ProtocolReply.AdaptiveReversalCount.Value) > 15 Then
+                        ProtocolReply.Decision = TestUnitCompleted(EvaluationTrials)
+                    End If
+
+                    'Or stopping when the adaptive levels plateau
+                    Dim AdaptiveLevelStepStoppingCriteriumLength As Integer = 5
+                    Dim EvaluationList = AdaptiveLevelHistory(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation)
+                    If EvaluationList.Count > AdaptiveLevelStepStoppingCriteriumLength Then
+                        Dim LastLevelSteps = EvaluationList.GetRange(EvaluationList.Count - AdaptiveLevelStepStoppingCriteriumLength, AdaptiveLevelStepStoppingCriteriumLength)
+
+                        'Stopping when the adaptive level range falls under 1 dB  
+                        If Math.Abs(LastLevelSteps.Max - LastLevelSteps.Min) < 1 Then
+                            ProtocolReply.Decision = TestUnitCompleted(EvaluationTrials)
+                        End If
+                    End If
+
+                    'Or if the trial length limit is reached
+                    If EvaluationTrials.Count > MaximumTestTrials Then
+                        ProtocolReply.Decision = TestUnitCompleted(EvaluationTrials)
+                    End If
+
+                Else
+                    'Simply reusing the level from the previous trial
+                    ProtocolReply = New TestProtocol.NextTaskInstruction()
+                    ProtocolReply.Decision = SpeechTestReplies.GotoNextTrial
+                    ProtocolReply.AdaptiveValue = DirectCast(EvaluationTrials.Last, SipTrial).PNR
+                    ProtocolReply.AdaptiveStepSize = 0
+                End If
+
             End If
 
+            'Clamping the adaptive value
+            ProtocolReply.AdaptiveValue = Math.Clamp(ProtocolReply.AdaptiveValue.Value, MinPNR, MaxPNR)
+
+            'Preparing next trial if needed
+            If ProtocolReply.Decision = SpeechTestReplies.GotoNextTrial Then
+                PrepareNextTrial(ProtocolReply)
+            End If
+
+            Return ProtocolReply.Decision
+
         End If
-
-        'Clamping the adaptive value
-        ProtocolReply.AdaptiveValue = Math.Clamp(ProtocolReply.AdaptiveValue.Value, MinPNR, MaxPNR)
-
-        'Preparing next trial if needed
-        If ProtocolReply.Decision = SpeechTestReplies.GotoNextTrial Then
-            PrepareNextTrial(ProtocolReply)
-        End If
-
-        Return ProtocolReply.Decision
 
     End Function
 
@@ -611,7 +694,7 @@ Public Class AdaptiveSip_TsfcStudy
         'Noting the test protocol / test unit as completed
         TestProtocolCompleted(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation) = True
 
-        'Removing the remaining test trials fro mthe completed test unit
+        'Removing the remaining test trials from the completed test unit
         Dim RemainingTrials As New List(Of SipTrial)
         For Each Trial In CurrentSipTestMeasurement.PlannedTrials
             If Trial.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation <> EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation Then
@@ -643,14 +726,15 @@ Public Class AdaptiveSip_TsfcStudy
 
     Protected Overrides Sub PrepareNextTrial(ByVal NextTaskInstruction As TestProtocol.NextTaskInstruction)
 
-
         CurrentTestTrial.TestStage = NextTaskInstruction.TestStage
 
-        'Setting levels of the SiP trial
-        DirectCast(CurrentTestTrial, SipTrial).SetLevels(ReferenceLevel, NextTaskInstruction.AdaptiveValue)
+        If IsAdaptive = True Then
+            'Setting levels of the SiP trial
+            DirectCast(CurrentTestTrial, SipTrial).SetLevels(ReferenceLevel, NextTaskInstruction.AdaptiveValue)
 
-        'String the adaptive protocol value in the trial (this is needed in the test protocol class)
-        CurrentTestTrial.AdaptiveProtocolValue = DirectCast(CurrentTestTrial, SipTrial).PNR
+            'String the adaptive protocol value in the trial (this is needed in the test protocol class)
+            CurrentTestTrial.AdaptiveProtocolValue = DirectCast(CurrentTestTrial, SipTrial).PNR
+        End If
 
         CurrentTestTrial.Tasks = 1
         CurrentTestTrial.ResponseAlternativeSpellings = New List(Of List(Of SpeechTestResponseAlternative))

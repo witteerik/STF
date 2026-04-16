@@ -282,7 +282,23 @@ public class TSFC_Triangle : IDrawable
         PointLocations[1] = v;
         PointLocations[2] = w;
 
+        // Drawing median lines
+        // Compute centroid
+        var centroid = new PointF(
+            (VisibleTriangleVertex_TopLeft.X + VisibleTriangleVertex_TopRight.X + VisibleTriangleVertex_BottomMid.X) / 3f,
+            (VisibleTriangleVertex_TopLeft.Y + VisibleTriangleVertex_TopRight.Y + VisibleTriangleVertex_BottomMid.Y) / 3f
+        );
+
+        // Draw medians from each vertex to centroid
+        canvas.StrokeColor = Colors.Gray;
+        canvas.StrokeSize = 1.5f;
+
+        canvas.DrawLine(VisibleTriangleVertex_TopLeft.X, VisibleTriangleVertex_TopLeft.Y, centroid.X, centroid.Y);
+        canvas.DrawLine(VisibleTriangleVertex_TopRight.X, VisibleTriangleVertex_TopRight.Y, centroid.X, centroid.Y);
+        canvas.DrawLine(VisibleTriangleVertex_BottomMid.X, VisibleTriangleVertex_BottomMid.Y, centroid.X, centroid.Y);
+
         // Drawing the circle
+        canvas.StrokeSize = 2f;
         if (circleIsVisible)
         {
             float CircleShadowRadius = circleRadius / 3;
