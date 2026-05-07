@@ -987,19 +987,13 @@ Namespace SipTest
             Dim OutputList As New List(Of String)
             'OutputList.AddRange(BaseClassTestResultColumnHeadings())
 
-            OutputList.Add(CreateExportHeadings())
+            'Adding SiP-test headings
+            Dim SiPTestHeadings = CreateExportHeadings()
+            OutputList.Add(SiPTestHeadings)
 
-            ''Adding property names
-            'Dim properties As PropertyInfo() = GetType(SiPTrial).GetProperties()
-
-            '' Iterating through each property
-            'For Each [property] As PropertyInfo In properties
-
-            '    ' Getting the name of the property
-            '    Dim propertyName As String = [property].Name
-            '    OutputList.Add(propertyName)
-
-            'Next
+            'Adding headings from the base class
+            Dim BaseHeadings = MyBase.TestResultColumnHeadings()
+            OutputList.Add(BaseHeadings)
 
             Return String.Join(vbTab, OutputList)
 
@@ -1019,35 +1013,14 @@ Namespace SipTest
             'And the EM term (which is not used int the SiP-test)
             EfficientContralateralMaskingTerm = 0
 
-            'OutputList.AddRange(BaseClassTestResultAsTextRow())
-
+            'Adding values from the SiP-test class
             OutputList.Add(CreateExportString(True))
 
-            'Dim properties As PropertyInfo() = GetType(SrtTrial).GetProperties()
+            'Adding values from the base class
+            Dim BaseValues = MyBase.TestResultAsTextRow
 
-            '' Iterating through each property
-            'For Each [property] As PropertyInfo In properties
-
-            '    ' Getting the name of the property
-            '    Dim propertyName As String = [property].Name
-
-            '    ' Getting the value of the property for the current instance 
-            '    Dim propertyValue As Object = [property].GetValue(Me)
-
-            '    'If TypeOf propertyValue Is String Then
-            '    '    Dim stringValue As String = DirectCast(propertyValue, String)
-            '    'ElseIf TypeOf propertyValue Is Integer Then
-            '    '    Dim intValue As Integer = DirectCast(propertyValue, Integer)
-            '    'Else
-            '    'End If
-
-            '   If propertyValue IsNot Nothing Then
-            '        OutputList.Add(propertyValue.ToString)
-            '   Else
-            '        OutputList.Add("NotSet")
-            '   End If
-
-            'Next
+            'Adding values specific for the SiP-test
+            OutputList.Add(BaseValues)
 
             Return String.Join(vbTab, OutputList)
 
