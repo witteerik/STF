@@ -9,14 +9,20 @@ namespace OstfTabletSuite
         public App()
         {
             InitializeComponent();
+        }
 
-            MainPage = new MainPage();
+        protected override Window CreateWindow(IActivationState? activationState)
+        {
+            var window = base.CreateWindow(activationState);
 
-            //MainPage = new AppShell();
+            var mainPage = new MainPage();
 
             // Adding an event handler that disposes the sound player 
-            MainPage.Unloaded += MainPage_Unloaded;
+            mainPage.Unloaded += MainPage_Unloaded;
 
+            window.Page = mainPage;
+
+            return window;
         }
 
         private void MainPage_Unloaded(object sender, EventArgs e)
