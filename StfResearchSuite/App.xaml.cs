@@ -11,21 +11,15 @@ namespace OstfTabletSuite
             InitializeComponent();
         }
 
+
         protected override Window CreateWindow(IActivationState? activationState)
         {
-            var window = base.CreateWindow(activationState);
-
             var mainPage = new MainPage();
-
-            // Adding an event handler that disposes the sound player 
             mainPage.Unloaded += MainPage_Unloaded;
-
-            window.Page = mainPage;
-
-            return window;
+            return new Window(mainPage);
         }
 
-        private void MainPage_Unloaded(object sender, EventArgs e)
+        private void MainPage_Unloaded(object? sender, EventArgs e)
         {
            Globals.StfBase.TerminateSTF();
         }

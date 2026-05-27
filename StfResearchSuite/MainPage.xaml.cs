@@ -57,13 +57,13 @@ namespace OstfTabletSuite
             Messager.OnNewAsyncMessage += (sender, e) =>
             {
                 // Fire and forget the async call
-                _ = DisplayMessageAsync(sender, e);
+                _ = DisplayMessageAsync(sender!, e);
             };
 
             Messager.OnNewQuestion += (sender, e) =>
             {
                 // Fire and forget the async call
-                _ = DisplayBooleanQuestion(sender, e);
+                _ = DisplayBooleanQuestion(sender!, e);
             };
 
             //STFN.Messager.OnNewMessage += DisplayMessage;
@@ -134,7 +134,7 @@ namespace OstfTabletSuite
             }
             else
             {
-                await DisplayAlert(title, message, cancelButtonText);
+                await DisplayAlertAsync(title, message, cancelButtonText);
             }
         }
 
@@ -149,7 +149,7 @@ namespace OstfTabletSuite
 
         public static void CloseApp()
         {
-            Application.Current.Quit();
+            Application.Current?.Quit();
         }
 
         public async Task DisplayMessageAsync(object sender, MessageEventArgs e)
@@ -165,7 +165,7 @@ namespace OstfTabletSuite
             }
             else
             {
-                await DisplayAlert(e.Title, e.Message, e.CancelButtonText);
+                 await DisplayAlertAsync(e.Title, e.Message, e.CancelButtonText);
                 // Setting false as response
                 e.TaskCompletionSource.SetResult(false);
             }
@@ -198,7 +198,7 @@ namespace OstfTabletSuite
 
                 //See more at https://learn.microsoft.com/en-us/dotnet/maui/user-interface/pop-ups?view=net-maui-8.0
 
-                bool answer = await DisplayAlert(e.Title, e.Question, e.AcceptButtonText, e.CancelButtonText);
+                bool answer = await DisplayAlertAsync(e.Title, e.Question, e.AcceptButtonText, e.CancelButtonText);
 
                 e.TaskCompletionSource.SetResult(answer);
             }
@@ -219,25 +219,25 @@ namespace OstfTabletSuite
 
         //}
 
-        public void GetSaveFilePath(object sender, PathEventArgs e)
+        public void GetSaveFilePath(object? sender, PathEventArgs e)
         {
 
             //throw new NotImplementedException();
         }
 
-        public void GetFolder(object sender, PathEventArgs e)
+        public void GetFolder(object? sender, PathEventArgs e)
         {
 
            //throw new NotImplementedException();
         }
 
-        public void GetOpenFilePath(object sender, PathEventArgs e)
+        public void GetOpenFilePath(object? sender, PathEventArgs e)
         {
 
             //throw new NotImplementedException();
         }
 
-        public void GetOpenFilePaths(object sender, PathsEventArgs e)
+        public void GetOpenFilePaths(object? sender, PathsEventArgs e)
         {
 
             //throw new NotImplementedException();
