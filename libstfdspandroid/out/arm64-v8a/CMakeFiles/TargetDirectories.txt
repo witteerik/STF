@@ -1,0 +1,3 @@
+C:/EriksDokument/source/repos/STF/libstfdspandroid/out/arm64-v8a/CMakeFiles/libstfdspandroid.dir
+C:/EriksDokument/source/repos/STF/libstfdspandroid/out/arm64-v8a/CMakeFiles/edit_cache.dir
+C:/EriksDokument/source/repos/STF/libstfdspandroid/out/arm64-v8a/CMakeFiles/rebuild_cache.dir
