@@ -8,7 +8,7 @@
 		<Nullable>enable</Nullable>
 		
 		<!--Set to true to rebuild the android native components from the libstfdspandroid project-->
-		<BuildAndroidNativeDsp>true</BuildAndroidNativeDsp>
+		<BuildAndroidNativeDsp>false</BuildAndroidNativeDsp>
 		<BuildAndroidNativeDspRuntimeIdentifier>android-arm64</BuildAndroidNativeDspRuntimeIdentifier>
 
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
