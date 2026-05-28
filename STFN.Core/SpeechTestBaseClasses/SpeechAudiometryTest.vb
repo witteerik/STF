@@ -35,7 +35,7 @@ Public MustInherit Class SpeechAudiometryTest
     Public MustOverride Overrides Sub FinalizeTestAheadOfTime()
 
 
-    Public Overrides Function GetObservedTestTrials() As IEnumerable(Of TestTrial)
+    Public Overrides Function GetObservedTestTrials() As TestTrialCollection
         Return ObservedTrials
     End Function
 

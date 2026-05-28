@@ -99,7 +99,7 @@ Public Class AdaptiveSiP_BILD
     Private BILD_FilterKernel As STFN.Core.Audio.Sound = Nothing
     Private BILD_FftFormat = New STFN.Core.Audio.Formats.FftFormat()
 
-    Public Overrides Function GetObservedTestTrials() As IEnumerable(Of TestTrial)
+    Public Overrides Function GetObservedTestTrials() As TestTrialCollection
         Return ObservedTrials
     End Function
 

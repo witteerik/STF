@@ -2567,7 +2567,7 @@ Public MustInherit Class SpeechTest
     '    Return True
     'End Function
 
-    Public MustOverride Function GetObservedTestTrials() As IEnumerable(Of TestTrial)
+    Public MustOverride Function GetObservedTestTrials() As TestTrialCollection
 
     'Public Function GetTestResultsExportString(Optional ByVal SelectedVariables As List(Of String) = Nothing) As String
 

@@ -174,9 +174,16 @@ Public MustInherit Class SipBaseSpeechTest
     End Function
 
 
-    Public Overrides Function GetObservedTestTrials() As IEnumerable(Of TestTrial)
-        Return CurrentSipTestMeasurement.ObservedTrials
+    Public Overrides Function GetObservedTestTrials() As TestTrialCollection
+
+        Dim Output As New TestTrialCollection
+        For Each Trial As SipTrial In CurrentSipTestMeasurement.ObservedTrials
+            Output.Add(Trial)
+        Next
+
+        Return Output
     End Function
+
 
     Public MustOverride Overrides Function GetSelectedExportVariables() As List(Of String)
 

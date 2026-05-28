@@ -79,7 +79,7 @@ Public Class AdaptiveSiP
     Private PlannedTestTrials As New TestTrialCollection
     Protected ObservedTrials As New TestTrialCollection
 
-    Public Overrides Function GetObservedTestTrials() As IEnumerable(Of TestTrial)
+    Public Overrides Function GetObservedTestTrials() As TestTrialCollection
         Return ObservedTrials
     End Function
 
