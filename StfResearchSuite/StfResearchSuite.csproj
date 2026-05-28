@@ -9,6 +9,7 @@
 		
 		<!--Set to true to rebuild the android native components from the libstfdspandroid project-->
 		<BuildAndroidNativeDsp>true</BuildAndroidNativeDsp>
+		<BuildAndroidNativeDspRuntimeIdentifier>android-arm64</BuildAndroidNativeDspRuntimeIdentifier>
 
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
 		<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
@@ -63,38 +64,6 @@
 		<None Remove="Resources\Splash\appicon.jpg" />
 		<None Remove="Resources\Splash\splash.svg" />
 	</ItemGroup>
-
-	<!--For later use when we want to start implementing the new libstfdspandroid CMake build system: (Cf project libstfdspandroid):-->
-	<!--For now we'll continue to use the manually built native libostfdspandroid (legacy project) libraries, which are included in the project as content files and copied to the output directory. The above ItemGroup removes them from the project so they won't be included in the build process, but they will still be available in the output directory for runtime loading.-->
-	<!--<ItemGroup>
-		<None Remove="Platforms\Android\native-libs\arm64-v8a\liblibostfdspandroid.so" />
-		<None Remove="Platforms\Android\native-libs\armeabi-v7a\liblibostfdspandroid.so" />
-		<None Remove="Platforms\Android\native-libs\x86\liblibostfdspandroid.so" />
-		<None Remove="Platforms\Android\native-libs\x86_64\liblibostfdspandroid.so" />
-		<None Remove="Platforms\Windows\native-libs\libostfdsp_Win32.dll" />
-		<None Remove="Platforms\Windows\native-libs\libostfdsp_x64.dll" />
-		<None Remove="Platforms\Windows\native-libs\portaudio_x64.dll" />
-		<None Remove="Platforms\Windows\native-libs\portaudio_x86.dll" />
-		<None Remove="Resources\AppIcon\appicon.jpg" />
-		<None Remove="Resources\Splash\appicon.jpg" />
-		<None Remove="Resources\Splash\splash.svg" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<AndroidNativeLibrary Include="Platforms\Android\native-libs\arm64-v8a\liblibostfdspandroid.so">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</AndroidNativeLibrary>
-		<AndroidNativeLibrary Include="Platforms\Android\native-libs\armeabi-v7a\liblibostfdspandroid.so">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</AndroidNativeLibrary>
-		<AndroidNativeLibrary Include="Platforms\Android\native-libs\x86\liblibostfdspandroid.so">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</AndroidNativeLibrary>
-		<AndroidNativeLibrary Include="Platforms\Android\native-libs\x86_64\liblibostfdspandroid.so">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</AndroidNativeLibrary>
-	</ItemGroup>-->
-
 
 	<ItemGroup>
 		<AndroidNativeLibrary Include="Platforms\Android\native-libs\arm64-v8a\liblibostfdspandroid.so">
@@ -161,11 +130,19 @@
 
 	<Target Name="BuildLibStfDspAndroid"
 			BeforeTargets="PrepareForBuild"
-			Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' and '$(BuildAndroidNativeDsp)' == 'true'">
-		<Message Text="Building libstfdspandroid with the Android NDK toolchain before the MAUI Android build." Importance="High" />
-		<Message Text="Android SDK directory: $(_AndroidSdkDirectory)" Importance="Normal" Condition="'$(_AndroidSdkDirectory)' != ''" />
-		<Message Text="Android NDK directory: $(_AndroidNdkDirectory)" Importance="Normal" Condition="'$(_AndroidNdkDirectory)' != ''" />
-		<Exec Command="powershell.exe -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\libstfdspandroid\build-android-native.ps1&quot; -Configuration &quot;$(Configuration)&quot; -AndroidSdkRoot &quot;$(_AndroidSdkDirectory)&quot; -AndroidNdkRoot &quot;$(_AndroidNdkDirectory)&quot;"
+			Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' and '$(BuildAndroidNativeDsp)' == 'true' and ('$(RuntimeIdentifier)' == '' or '$(RuntimeIdentifier)' == '$(BuildAndroidNativeDspRuntimeIdentifier)')">
+		<PropertyGroup>
+			<AndroidSdkDirectoryForNativeBuild>$([System.String]::Copy('$(_AndroidSdkDirectory)').TrimEnd('\'))</AndroidSdkDirectoryForNativeBuild>
+			<AndroidNdkDirectoryForNativeBuild>$([System.String]::Copy('$(_AndroidNdkDirectory)').TrimEnd('\'))</AndroidNdkDirectoryForNativeBuild>
+			<AndroidSdkDirectoryForNativeBuild Condition="'$(AndroidSdkDirectoryForNativeBuild)' == '' and '$(AndroidNdkDirectoryForNativeBuild)' != ''">$([System.Text.RegularExpressions.Regex]::Replace('$(AndroidNdkDirectoryForNativeBuild)', '\\ndk-bundle$', ''))</AndroidSdkDirectoryForNativeBuild>
+			<AndroidSdkDirectoryForNativeBuild Condition="'$(AndroidSdkDirectoryForNativeBuild)' == '$(AndroidNdkDirectoryForNativeBuild)' and '$(AndroidNdkDirectoryForNativeBuild)' != ''">$([System.Text.RegularExpressions.Regex]::Replace('$(AndroidNdkDirectoryForNativeBuild)', '\\ndk\\[^\\]+$', ''))</AndroidSdkDirectoryForNativeBuild>
+			<AndroidSdkRootArgument Condition="'$(AndroidSdkDirectoryForNativeBuild)' != ''"> -AndroidSdkRoot &quot;$(AndroidSdkDirectoryForNativeBuild)&quot;</AndroidSdkRootArgument>
+			<AndroidNdkRootArgument Condition="'$(AndroidNdkDirectoryForNativeBuild)' != ''"> -AndroidNdkRoot &quot;$(AndroidNdkDirectoryForNativeBuild)&quot;</AndroidNdkRootArgument>
+		</PropertyGroup>
+		<Message Text="Building libstfdspandroid with the Android NDK toolchain before the MAUI Android build (RuntimeIdentifier=$(RuntimeIdentifier))." Importance="High" />
+		<Message Text="Android SDK directory: $(AndroidSdkDirectoryForNativeBuild)" Importance="Normal" Condition="'$(AndroidSdkDirectoryForNativeBuild)' != ''" />
+		<Message Text="Android NDK directory: $(AndroidNdkDirectoryForNativeBuild)" Importance="Normal" Condition="'$(AndroidNdkDirectoryForNativeBuild)' != ''" />
+		<Exec Command="powershell.exe -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\libstfdspandroid\build-android-native.ps1&quot; -Configuration &quot;$(Configuration)&quot;$(AndroidSdkRootArgument)$(AndroidNdkRootArgument)"
 			  WorkingDirectory="$(MSBuildProjectDirectory)\..\libstfdspandroid" />
 	</Target>
 

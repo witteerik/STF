@@ -60,8 +60,48 @@ function Try-ResolveExistingPath {
 	return $null
 }
 
+function Get-AndroidSdkCandidatesFromNdkPath {
+	param([string]$NdkPath)
+
+	$candidates = New-Object System.Collections.Generic.List[string]
+	foreach ($normalizedCandidate in (Get-NormalizedPathCandidates -PathValue $NdkPath)) {
+		$trimmedCandidate = $normalizedCandidate.TrimEnd('\')
+		if ($trimmedCandidate -like '*\ndk-bundle') {
+			$candidates.Add((Split-Path -Parent $trimmedCandidate))
+			continue
+		}
+
+		$parentPath = Split-Path -Parent $trimmedCandidate
+		if (-not [string]::IsNullOrWhiteSpace($parentPath) -and (Split-Path -Leaf $parentPath) -ieq 'ndk') {
+			$candidates.Add((Split-Path -Parent $parentPath))
+			continue
+		}
+
+		$resolvedNdkPath = Try-ResolveExistingPath -PathValue $normalizedCandidate
+		if ($null -eq $resolvedNdkPath) {
+			continue
+		}
+
+		$leafName = Split-Path -Leaf $resolvedNdkPath
+		if ($leafName -ieq "ndk-bundle") {
+			$candidates.Add((Split-Path -Parent $resolvedNdkPath))
+			continue
+		}
+
+		$resolvedParentPath = Split-Path -Parent $resolvedNdkPath
+		if ((Split-Path -Leaf $resolvedParentPath) -ieq "ndk") {
+			$candidates.Add((Split-Path -Parent $resolvedParentPath))
+		}
+	}
+
+	return $candidates | Select-Object -Unique
+}
+
 function Resolve-AndroidSdkRoot {
-	param([string]$PreferredPath)
+	param(
+		[string]$PreferredPath,
+		[string]$PreferredNdkPath
+	)
 
 	$candidates = @(
 		$PreferredPath,
@@ -69,6 +109,16 @@ function Resolve-AndroidSdkRoot {
 		$env:ANDROID_HOME,
 		(Join-Path $env:LOCALAPPDATA "Android\Sdk")
 	) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+
+	$ndkCandidates = @(
+		$PreferredNdkPath,
+		$env:ANDROID_NDK_ROOT,
+		$env:ANDROID_NDK_HOME
+	) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+
+	foreach ($ndkCandidate in $ndkCandidates) {
+		$candidates += Get-AndroidSdkCandidatesFromNdkPath -NdkPath $ndkCandidate
+	}
 
 	foreach ($candidate in $candidates) {
 		foreach ($normalizedCandidate in (Get-NormalizedPathCandidates -PathValue $candidate)) {
@@ -180,7 +230,7 @@ $nativeLibOutputRoot = Join-Path $stfResearchSuiteRoot "Platforms\Android\native
 $cmakeSourceDir = $scriptRoot
 $outRoot = Join-Path $scriptRoot "out"
 
-$resolvedSdkRoot = Resolve-AndroidSdkRoot -PreferredPath $AndroidSdkRoot
+$resolvedSdkRoot = Resolve-AndroidSdkRoot -PreferredPath $AndroidSdkRoot -PreferredNdkPath $AndroidNdkRoot
 $resolvedNdkRoot = Resolve-AndroidNdkRoot -PreferredPath $AndroidNdkRoot -SdkRoot $resolvedSdkRoot
 $resolvedSdkCMakeRoot = Resolve-AndroidSdkCMakeRoot -SdkRoot $resolvedSdkRoot
 $toolchainFile = Join-Path $resolvedNdkRoot "build\cmake\android.toolchain.cmake"

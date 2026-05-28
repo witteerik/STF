@@ -1,6 +1,4 @@
 # ninja log v5
-671	2306	8016903413995927	CMakeFiles/libstfdspandroid.dir/src/libstfdspandroid.cpp.o	b66a4fc443860509
-8	19254	8016903583640668	CMakeFiles/libstfdspandroid.dir/src/dsp.cpp.o	33f049e70a6e1441
-19255	20220	8016903593330621	liblibostfdspandroid.so	5dcdf0654f399db5
 5	1668	8016931289372878	CMakeFiles/libstfdspandroid.dir/src/libstfdspandroid.cpp.o	b66a4fc443860509
+8	19254	8016903583640668	CMakeFiles/libstfdspandroid.dir/src/dsp.cpp.o	33f049e70a6e1441
 1670	2981	8016931302534334	liblibostfdspandroid.so	5dcdf0654f399db5
