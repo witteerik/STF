@@ -24,6 +24,7 @@
 
 	<ItemGroup>
 		<Folder Include="Drawables\" />
+		<Folder Include="ViewElements\" />
 	</ItemGroup>
 
 	<ItemGroup>

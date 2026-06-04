@@ -43,14 +43,15 @@ Public Class MatrixSpeechTest
         AvailableTestModes = New List(Of TestModes) From {TestModes.AdaptiveNoise}
         'AvailableTestModes = New List(Of TestModes) From {TestModes.AdaptiveSpeech, TestModes.AdaptiveNoise}
 
-        AvailableTestProtocols = New List(Of TestProtocol) From {New HagermanKinnefors1995_TestProtocol}
-        'AvailableTestProtocols = New List(Of TestProtocol) From {New HagermanKinnefors1995_TestProtocol, New BrandKollmeier2002_TestProtocol}
+        'AvailableTestProtocols = New List(Of TestProtocol) From {New HagermanKinnefors1995_TestProtocol}
+        AvailableTestProtocols = New List(Of TestProtocol) From {New HagermanKinnefors1995_TestProtocol, New BrandKollmeier2002_TestProtocol}
 
         MaximumSoundFieldSpeechLocations = 1
         MaximumSoundFieldMaskerLocations = 1
         MinimumSoundFieldSpeechLocations = 1
         MinimumSoundFieldMaskerLocations = 1
 
+        ShowGuiChoice_FreeRecall = True
         IsFreeRecall = True
         SupportsManualPausing = True
 
@@ -166,7 +167,8 @@ Public Class MatrixSpeechTest
 
             Case TypeOf TestProtocol Is BrandKollmeier2002_TestProtocol
 
-                DirectCast(TestProtocol, HagermanKinnefors1995_TestProtocol).AdaptiveType = HagermanKinnefors1995_TestProtocol.AdaptiveTypes.ThresholdInNoise
+                'DirectCast(TestProtocol, HagermanKinnefors1995_TestProtocol).AdaptiveType = HagermanKinnefors1995_TestProtocol.AdaptiveTypes.ThresholdInNoise
+                DirectCast(TestProtocol, BrandKollmeier2002_TestProtocol).TargetScore = 0.8
                 TestMode = TestModes.AdaptiveNoise
                 TargetLevel = 65
                 MaskingLevel = 65
@@ -453,37 +455,113 @@ Public Class MatrixSpeechTest
 
         Else
 
+            'TODO: We should add this as a GUI option 
+            Dim MaxNumberOfContrastWords As Nullable(Of Integer) = 3
+
             'Adding all words to the GUI
             Dim AllSentencesInList = NextTestSentence.GetSiblings()
 
-            For s = 0 To AllSentencesInList.Count - 1
-                Dim WordsInSentence = AllSentencesInList(s).ChildComponents()
-                Dim WordSpellings = New List(Of String)
-                For w = 0 To WordsInSentence.Count - 1
-                    WordSpellings.Add(WordsInSentence(w).GetCategoricalVariableValue("Spelling"))
-                Next
-                ResponseAlternativeSpellingsList.Add(WordSpellings)
-            Next
+            Dim ContrastsToAdd As Integer = AllSentencesInList.Count
 
-            'Transposing the matrix
-            ResponseAlternativeSpellingsList = TransposeMatrix(ResponseAlternativeSpellingsList)
-
-            'Sorting the matrix alphabetically
-            For Each Item In ResponseAlternativeSpellingsList
-                Item.Sort()
-            Next
-
-            'Transposing back after sorting
-            'ReponseAlternativeList = TransposeMatrix(ReponseAlternativeList)
-
-            'Add other buttons needed ?
-
-            'A Did-Not-Hear-Response Alternative ?
-            If IncludeDidNotHearResponseAlternative = True Then
-                For Each Item In ResponseAlternativeSpellingsList
-                    Item.Add("?")
-                Next
+            If MaxNumberOfContrastWords.HasValue Then
+                If ContrastsToAdd > MaxNumberOfContrastWords.Value Then
+                    ContrastsToAdd = MaxNumberOfContrastWords.Value
+                End If
             End If
+
+            Dim AddAllWords As Boolean = False
+            If ContrastsToAdd = AllSentencesInList.Count Then
+                AddAllWords = True
+            End If
+
+            If AddAllWords = False Then
+
+                'Getting the incorrect sentences
+                Dim IncorrectSentencesList As New List(Of SpeechMaterialComponent)
+                For s = 0 To AllSentencesInList.Count - 1
+                    If NextTestSentence.PrimaryStringRepresentation <> AllSentencesInList(s).PrimaryStringRepresentation Then
+                        IncorrectSentencesList.Add(AllSentencesInList(s))
+                    End If
+                Next
+
+                'Sampling ContrastsToAdd - 1 sentences from the incorrect sentences
+                Dim RandomIncorrectSentenceIndexList = DSP.SampleWithoutReplacement(ContrastsToAdd - 1, 0, IncorrectSentencesList.Count)
+
+                'And adding those to the SentencesToAddList
+                Dim SentencesToAddList As New List(Of SpeechMaterialComponent)
+                For Each i In RandomIncorrectSentenceIndexList
+                    SentencesToAddList.Add(IncorrectSentencesList(i))
+                Next
+
+                'Adding the correct sentence to the list of sentences to add
+                SentencesToAddList.Add(NextTestSentence)
+
+                'Adding the spellings of the sentences to the ResponseAlternativeSpellingsList
+                For s = 0 To SentencesToAddList.Count - 1
+                    Dim WordsInSentence = SentencesToAddList(s).ChildComponents()
+                    Dim WordSpellings = New List(Of String)
+                    For w = 0 To WordsInSentence.Count - 1
+                        WordSpellings.Add(WordsInSentence(w).GetCategoricalVariableValue("Spelling"))
+                    Next
+                    ResponseAlternativeSpellingsList.Add(WordSpellings)
+                Next
+
+                'Transposing the matrix
+                ResponseAlternativeSpellingsList = TransposeMatrix(ResponseAlternativeSpellingsList)
+
+                'Sorting the matrix alphabetically
+                For Each Item In ResponseAlternativeSpellingsList
+                    Item.Sort()
+                Next
+
+                'Transposing back after sorting
+                'ReponseAlternativeList = TransposeMatrix(ReponseAlternativeList)
+
+                'Add other buttons needed ?
+
+                'A Did-Not-Hear-Response Alternative ?
+                If IncludeDidNotHearResponseAlternative = True Then
+                    For Each Item In ResponseAlternativeSpellingsList
+                        Item.Add("?")
+                    Next
+                End If
+
+
+            Else
+
+
+                For s = 0 To AllSentencesInList.Count - 1
+                    Dim WordsInSentence = AllSentencesInList(s).ChildComponents()
+                    Dim WordSpellings = New List(Of String)
+                    For w = 0 To WordsInSentence.Count - 1
+                        WordSpellings.Add(WordsInSentence(w).GetCategoricalVariableValue("Spelling"))
+                    Next
+                    ResponseAlternativeSpellingsList.Add(WordSpellings)
+                Next
+
+                'Transposing the matrix
+                ResponseAlternativeSpellingsList = TransposeMatrix(ResponseAlternativeSpellingsList)
+
+                'Sorting the matrix alphabetically
+                For Each Item In ResponseAlternativeSpellingsList
+                    Item.Sort()
+                Next
+
+                'Transposing back after sorting
+                'ReponseAlternativeList = TransposeMatrix(ReponseAlternativeList)
+
+                'Add other buttons needed ?
+
+                'A Did-Not-Hear-Response Alternative ?
+                If IncludeDidNotHearResponseAlternative = True Then
+                    For Each Item In ResponseAlternativeSpellingsList
+                        Item.Add("?")
+                    Next
+                End If
+
+
+            End If
+
 
         End If
 

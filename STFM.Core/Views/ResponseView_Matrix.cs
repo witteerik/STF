@@ -7,7 +7,7 @@
 using STFN.Core;
 using STFM.Views;
 
-namespace STFM.Extension.Views;
+namespace STFM.Views;
 
 public class ResponseView_Matrix : ResponseView
 {
@@ -67,6 +67,9 @@ public class ResponseView_Matrix : ResponseView
         // Creating a grid
         responseAlternativeGrid = new Grid { HorizontalOptions = LayoutOptions.Fill, VerticalOptions = LayoutOptions.Fill };
         responseAlternativeGrid.BackgroundColor = Color.FromRgb(40, 40, 40);
+        responseAlternativeGrid.Margin = new Thickness(this.Width / 40, this.Height / nCols, this.Width / 40, this.Height / nCols);
+        responseAlternativeGrid.ColumnSpacing = this.Width / 40;
+        responseAlternativeGrid.RowSpacing = 0;
 
         // Setting up row and columns
         for (int i = 0; i < nRows; i++)
@@ -76,16 +79,21 @@ public class ResponseView_Matrix : ResponseView
 
         for (int i = 0; i < nCols; i++)
         {
-            responseAlternativeGrid.AddColumnDefinition(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            responseAlternativeGrid.AddColumnDefinition(new ColumnDefinition { Width = GridLength.Star});
         }
 
         // Determining suitable text size (TODO: This is a bad method, since it doesn't care for the lengths of any strings.....
         var myWidth = this.Width;
-        var textSize = Math.Round(myWidth / (12 * nCols));
+        //var textSize = Math.Round(myWidth / (12 * nCols));
+        var textSize = Math.Round(myWidth / (6 * nCols));
 
         for (int col = 0; col < ResponseAlternatives.Count; col++)
         {
             var column = new SelectionButtonSet(ResponseAlternatives[col], textSize, SelectionButtonSet.Orientation.Vertical, col);
+
+            column.HorizontalOptions = LayoutOptions.Fill;
+            column.VerticalOptions = LayoutOptions.Fill;
+
             column.NewSelection += Column_NewSelection;
             responseAlternativeGrid.Add(column, col, 0);
         }

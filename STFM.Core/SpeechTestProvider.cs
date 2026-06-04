@@ -262,8 +262,16 @@ namespace STFM
 
                 case "Hagermans meningar (Matrix)":
 
-                    // Response view
-                    return new ResponseView_FreeRecall();
+                    if (CurrentSpeechTest.IsFreeRecall)
+                    {
+                        // Response view
+                        return new ResponseView_FreeRecall();
+                    }
+                    else
+                    {
+                        return new ResponseView_Matrix();
+                    }
+
 
                 case "Hörtröskel för tal (HTT)":
 

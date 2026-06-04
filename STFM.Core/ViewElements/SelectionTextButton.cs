@@ -49,16 +49,16 @@ public class SelectionTextButton : Frame
         this.HorizontalOptions = LayoutOptions.Fill;
         this.VerticalOptions = LayoutOptions.Fill;
         this.CornerRadius = 6;
-        this.Padding = new Thickness(22,2);
-        this.Margin = new Thickness(4,0);
+        this.Padding = new Thickness(2,2);
+        this.Margin = new Thickness(2,2);
         this.Shadow = new Shadow();
-
 
         repsonseButton = new Button()
         {
             Text = responseAlternative.Spelling,
             BackgroundColor = Color.FromRgb(255, 255, 128),
             Padding = new Thickness(0, 0),
+            Margin = new Thickness(4,4),
             TextColor = Color.FromRgb(40, 40, 40),
             FontSize = textSize,
             HorizontalOptions = LayoutOptions.Fill,

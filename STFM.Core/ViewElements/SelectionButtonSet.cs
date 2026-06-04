@@ -63,7 +63,8 @@ public class SelectionButtonSet : Grid
             {
                 SelectionTextButton selectionTextButton = new SelectionTextButton(responseAlternatives[i], textSize, selectionColor, unSelectedColor);
                 selectionTextButton.Clicked += selectionButton_Clicked;
-                this.Add(selectionTextButton, i, 1);
+                selectionTextButton.HorizontalOptions = LayoutOptions.Fill;
+                this.Add(selectionTextButton, i, 0);
             }
         }
         else
@@ -73,9 +74,11 @@ public class SelectionButtonSet : Grid
             {
                 SelectionTextButton selectionTextButton = new SelectionTextButton(responseAlternatives[i], textSize, selectionColor, unSelectedColor);
                 selectionTextButton.Clicked += selectionButton_Clicked;
-                this.Add(selectionTextButton, 1, i);
+                selectionTextButton.HorizontalOptions = LayoutOptions.Fill;
+                this.Add(selectionTextButton, 0, i);
             }
         }
+
     }
 
     private void selectionButton_Clicked(object sender, EventArgs e)

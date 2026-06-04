@@ -14,10 +14,6 @@
 		<Platforms>AnyCPU;x64</Platforms>
 	</PropertyGroup>
 
-	<ItemGroup>
-		<Compile Remove="Views\ResponseView_Matrix.cs" />
-	</ItemGroup>
-
 
 	<ItemGroup>
 		<PackageReference Include="CommunityToolkit.Maui" Version="14.1.1" />

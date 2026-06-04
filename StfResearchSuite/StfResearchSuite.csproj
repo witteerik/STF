@@ -128,22 +128,19 @@
 		<ProjectReference Include="..\STFM.Extension\STFM.Extension.csproj" />
 	</ItemGroup>
 
-	<Target Name="BuildLibStfDspAndroid"
-			BeforeTargets="PrepareForBuild"
-			Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' and '$(BuildAndroidNativeDsp)' == 'true' and ('$(RuntimeIdentifier)' == '' or '$(RuntimeIdentifier)' == '$(BuildAndroidNativeDspRuntimeIdentifier)')">
+	<Target Name="BuildLibStfDspAndroid" BeforeTargets="PrepareForBuild" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' and '$(BuildAndroidNativeDsp)' == 'true' and ('$(RuntimeIdentifier)' == '' or '$(RuntimeIdentifier)' == '$(BuildAndroidNativeDspRuntimeIdentifier)')">
 		<PropertyGroup>
 			<AndroidSdkDirectoryForNativeBuild>$([System.String]::Copy('$(_AndroidSdkDirectory)').TrimEnd('\'))</AndroidSdkDirectoryForNativeBuild>
 			<AndroidNdkDirectoryForNativeBuild>$([System.String]::Copy('$(_AndroidNdkDirectory)').TrimEnd('\'))</AndroidNdkDirectoryForNativeBuild>
 			<AndroidSdkDirectoryForNativeBuild Condition="'$(AndroidSdkDirectoryForNativeBuild)' == '' and '$(AndroidNdkDirectoryForNativeBuild)' != ''">$([System.Text.RegularExpressions.Regex]::Replace('$(AndroidNdkDirectoryForNativeBuild)', '\\ndk-bundle$', ''))</AndroidSdkDirectoryForNativeBuild>
 			<AndroidSdkDirectoryForNativeBuild Condition="'$(AndroidSdkDirectoryForNativeBuild)' == '$(AndroidNdkDirectoryForNativeBuild)' and '$(AndroidNdkDirectoryForNativeBuild)' != ''">$([System.Text.RegularExpressions.Regex]::Replace('$(AndroidNdkDirectoryForNativeBuild)', '\\ndk\\[^\\]+$', ''))</AndroidSdkDirectoryForNativeBuild>
-			<AndroidSdkRootArgument Condition="'$(AndroidSdkDirectoryForNativeBuild)' != ''"> -AndroidSdkRoot &quot;$(AndroidSdkDirectoryForNativeBuild)&quot;</AndroidSdkRootArgument>
-			<AndroidNdkRootArgument Condition="'$(AndroidNdkDirectoryForNativeBuild)' != ''"> -AndroidNdkRoot &quot;$(AndroidNdkDirectoryForNativeBuild)&quot;</AndroidNdkRootArgument>
+			<AndroidSdkRootArgument Condition="'$(AndroidSdkDirectoryForNativeBuild)' != ''"> -AndroidSdkRoot "$(AndroidSdkDirectoryForNativeBuild)"</AndroidSdkRootArgument>
+			<AndroidNdkRootArgument Condition="'$(AndroidNdkDirectoryForNativeBuild)' != ''"> -AndroidNdkRoot "$(AndroidNdkDirectoryForNativeBuild)"</AndroidNdkRootArgument>
 		</PropertyGroup>
 		<Message Text="Building libstfdspandroid with the Android NDK toolchain before the MAUI Android build (RuntimeIdentifier=$(RuntimeIdentifier))." Importance="High" />
 		<Message Text="Android SDK directory: $(AndroidSdkDirectoryForNativeBuild)" Importance="Normal" Condition="'$(AndroidSdkDirectoryForNativeBuild)' != ''" />
 		<Message Text="Android NDK directory: $(AndroidNdkDirectoryForNativeBuild)" Importance="Normal" Condition="'$(AndroidNdkDirectoryForNativeBuild)' != ''" />
-		<Exec Command="powershell.exe -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\libstfdspandroid\build-android-native.ps1&quot; -Configuration &quot;$(Configuration)&quot;$(AndroidSdkRootArgument)$(AndroidNdkRootArgument)"
-			  WorkingDirectory="$(MSBuildProjectDirectory)\..\libstfdspandroid" />
+		<Exec Command="powershell.exe -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\libstfdspandroid\build-android-native.ps1&quot; -Configuration &quot;$(Configuration)&quot;$(AndroidSdkRootArgument)$(AndroidNdkRootArgument)" WorkingDirectory="$(MSBuildProjectDirectory)\..\libstfdspandroid" />
 	</Target>
 
 
