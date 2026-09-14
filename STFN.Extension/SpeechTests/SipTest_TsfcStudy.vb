@@ -16,10 +16,11 @@ Public Class SipTest_TsfcStudy
     Public Overrides ReadOnly Property FilePathRepresentation As String = "SiP_Tsfc"
 
     Private TestSectionTripletCount As Integer = 40
+    Private FixedTestWordPresentations As Integer = 3 ' The number each test word is presented in each condition in the fixed stimuli test
 
     Private StartAdaptiveLevel As Double = 0
 
-    Private MaximumTestTrials As Integer = 200
+    Private MaximumTestTrials As Integer = 50
 
     Private MinPNR As Double = -20
     Private MaxPNR As Double = 15
@@ -133,7 +134,7 @@ Public Class SipTest_TsfcStudy
     Public Overrides ReadOnly Property ShowGuiChoice_TargetSNRLevel As Boolean = False
 
 
-    Private PresetName As String = "QuickSiP"
+    Private PresetName As String = "TSFC26"
 
     'Private ResultsSummary As SortedList(Of Double, Tuple(Of SipTestList, Double))
 
@@ -236,13 +237,6 @@ Public Class SipTest_TsfcStudy
 
     'End Function
 
-    Public Shared Function GetTestPnrs() As List(Of Double)
-
-        'TODO: Adjust for constant stimuli test
-        Dim PNRs As New List(Of Double) From {-5, 0, 5}
-        Return PNRs
-
-    End Function
 
     Private Sub PlanSiPTrials(ByVal SoundPropagationType As SoundPropagationTypes, Optional ByVal RandomSeed As Integer? = Nothing)
 
@@ -267,7 +261,7 @@ Public Class SipTest_TsfcStudy
             Dim FixedPnrs As New SortedList(Of String, Double())
             For Each TWG In Preset
                 ' TODO: Add the PNRs to test for each specific TWG
-                FixedPnrs.Add(TWG.PrimaryStringRepresentation, {-10, -5, 0, 5})
+                FixedPnrs.Add(TWG.PrimaryStringRepresentation, {-9, -6, -4, -2, 0, 3})
             Next
 
 
@@ -283,16 +277,14 @@ Public Class SipTest_TsfcStudy
                     Dim TestWords = TWG.GetChildren
 
                     'Adding test section trials
-                    For i = 0 To TestSectionTripletCount - 1
+                    For testWordIndex = 0 To TestWords.Count - 1
 
-                        'Getting a vector of test word indices to draw
-                        Dim RandomIndices = STFN.Core.DSP.SampleWithoutReplacement(TestWords.Count, 0, TestWords.Count)
-
-                        For Each RandomIndex In RandomIndices
+                        'Repeating each test word FixedTestWordPresentations times
+                        For i = 0 To FixedTestWordPresentations - 1
 
                             'Creating the trial
-                            Dim NewTestTrial As New SipTrial(NewTestUnit, TestWords(RandomIndex), SelectedMediaSets.First, SoundPropagationType,
-                                                     SipTargetStimulusLocations, SipMaskerLocations, SipBackgroundLocations, CurrentSipTestMeasurement.Randomizer)
+                            Dim NewTestTrial As New SipTrial(NewTestUnit, TestWords(testWordIndex), SelectedMediaSets.First, SoundPropagationType,
+                                                         SipTargetStimulusLocations, SipMaskerLocations, SipBackgroundLocations, CurrentSipTestMeasurement.Randomizer)
 
                             'Setting the presentation levels
                             NewTestTrial.SetLevels(ReferenceLevel, FixedPnr)
@@ -578,11 +570,21 @@ Public Class SipTest_TsfcStudy
             'Taking a dump of the SpeechTest
             CurrentTestTrial.SpeechTestPropertyDump = Logging.ListObjectPropertyValues(Me.GetType, Me)
 
+            'Adding the barycentric coordinates for all test words in the trial to the trial's SpeechTestPropertyDump
+            Dim ResponseList2 = TryCast(e.Box, SortedList(Of String, Double))
+            If ResponseList2 IsNot Nothing Then
+                'We stick this into the SpeechTestPropertyDump of the trial, so that it can be used for analysis later on
+                For b = 0 To ResponseList2.Count - 1
+                    CurrentTestTrial.SpeechTestPropertyDump.Add("BarycentricCoordinates" & "_" & b & vbTab & "Word",
+                                                                ResponseList2.Keys(b) & vbTab & ResponseList2.Values(b))
+                Next
+            End If
+
 
         Else
-            'Nothing to correct (this should be the start of a new test)
-            'Playing initial sound, and premixing trials
-            InitiateTestByPlayingSound()
+                'Nothing to correct (this should be the start of a new test)
+                'Playing initial sound, and premixing trials
+                InitiateTestByPlayingSound()
 
         End If
 
@@ -644,21 +646,21 @@ Public Class SipTest_TsfcStudy
                     AdaptiveLevelHistory(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation).Add(ProtocolReply.AdaptiveValue)
 
                     'Stopping after X reversals
-                    If Math.Abs(ProtocolReply.AdaptiveReversalCount.Value) > 15 Then
+                    If Math.Abs(ProtocolReply.AdaptiveReversalCount.Value) > 8 Then
                         ProtocolReply.Decision = TestUnitCompleted(EvaluationTrials)
                     End If
 
-                    'Or stopping when the adaptive levels plateau
-                    Dim AdaptiveLevelStepStoppingCriteriumLength As Integer = 5
-                    Dim EvaluationList = AdaptiveLevelHistory(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation)
-                    If EvaluationList.Count > AdaptiveLevelStepStoppingCriteriumLength Then
-                        Dim LastLevelSteps = EvaluationList.GetRange(EvaluationList.Count - AdaptiveLevelStepStoppingCriteriumLength, AdaptiveLevelStepStoppingCriteriumLength)
+                    ''Or stopping when the adaptive levels plateau
+                    'Dim AdaptiveLevelStepStoppingCriteriumLength As Integer = 5
+                    'Dim EvaluationList = AdaptiveLevelHistory(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation)
+                    'If EvaluationList.Count > AdaptiveLevelStepStoppingCriteriumLength Then
+                    '    Dim LastLevelSteps = EvaluationList.GetRange(EvaluationList.Count - AdaptiveLevelStepStoppingCriteriumLength, AdaptiveLevelStepStoppingCriteriumLength)
 
-                        'Stopping when the adaptive level range falls under 1 dB  
-                        If Math.Abs(LastLevelSteps.Max - LastLevelSteps.Min) < 1 Then
-                            ProtocolReply.Decision = TestUnitCompleted(EvaluationTrials)
-                        End If
-                    End If
+                    '    'Stopping when the adaptive level range falls under 1 dB  
+                    '    If Math.Abs(LastLevelSteps.Max - LastLevelSteps.Min) < 1 Then
+                    '        ProtocolReply.Decision = TestUnitCompleted(EvaluationTrials)
+                    '    End If
+                    'End If
 
                     'Or if the trial length limit is reached
                     If EvaluationTrials.Count > MaximumTestTrials Then
@@ -799,7 +801,9 @@ Public Class SipTest_TsfcStudy
         End If
 
         CurrentTestTrial.TrialEventList.Add(New ResponseViewEvent With {.TickTime = ShowResponseAlternativesTimer_Interval, .Type = ResponseViewEvent.ResponseViewEventTypes.ShowResponseAlternatives})
-        CurrentTestTrial.TrialEventList.Add(New ResponseViewEvent With {.TickTime = MaxResponseTimeTimer_Interval, .Type = ResponseViewEvent.ResponseViewEventTypes.ShowResponseTimesOut})
+
+        'We run without a maximum response time.
+        'CurrentTestTrial.TrialEventList.Add(New ResponseViewEvent With {.TickTime = MaxResponseTimeTimer_Interval, .Type = ResponseViewEvent.ResponseViewEventTypes.ShowResponseTimesOut})
 
     End Sub
 
