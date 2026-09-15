@@ -570,15 +570,42 @@ Public Class SipTest_TsfcStudy
             'Taking a dump of the SpeechTest
             CurrentTestTrial.SpeechTestPropertyDump = Logging.ListObjectPropertyValues(Me.GetType, Me)
 
+            'Adding extra data for the export of SpeechTestPropertyDump
             'Adding the barycentric coordinates for all test words in the trial to the trial's SpeechTestPropertyDump
             Dim ResponseList2 = TryCast(e.Box, SortedList(Of String, Double))
             If ResponseList2 IsNot Nothing Then
                 'We stick this into the SpeechTestPropertyDump of the trial, so that it can be used for analysis later on
                 For b = 0 To ResponseList2.Count - 1
-                    CurrentTestTrial.SpeechTestPropertyDump.Add("BarycentricCoordinates" & "_" & b & vbTab & "Word",
+                    CurrentTestTrial.SpeechTestPropertyDump.Add("BarycentricCoordinate_Word_" & b & vbTab & "BarycentricCoordinate_" & b,
                                                                 ResponseList2.Keys(b) & vbTab & ResponseList2.Values(b))
                 Next
             End If
+
+            'Exporting extra timing data
+            Dim TimingList As New SortedList(Of TestTrial.TimedTrialEvents, Object)
+            TimingList.Add(TestTrial.TimedTrialEvents.TrialStarted, Nothing)
+            TimingList.Add(TestTrial.TimedTrialEvents.LinguisticSoundStarted, Nothing)
+            TimingList.Add(TestTrial.TimedTrialEvents.LinguisticSoundEnded, Nothing)
+            TimingList.Add(TestTrial.TimedTrialEvents.ResponseAlternativesShown, Nothing)
+            TimingList.Add(TestTrial.TimedTrialEvents.ParticipantResponded, Nothing)
+
+            For Each TimedEvent In CurrentTestTrial.TimedEventsList
+                If TimingList.ContainsKey(TimedEvent.Item1) Then
+                    TimingList(TimedEvent.Item1) = TimedEvent.Item2
+                End If
+            Next
+
+            For Each TimedEvent In TimingList
+                If TimedEvent.Value IsNot Nothing Then
+                    CurrentTestTrial.SpeechTestPropertyDump.Add("TimedEvent_" & TimedEvent.Key.ToString,
+                                                                New DateTimeOffset(TimedEvent.Value).ToString("yyyy-MM-ddTHH:mm:ss.fffzzz"))
+
+                    CurrentTestTrial.SpeechTestPropertyDump.Add("UnixTimedEvent_" & TimedEvent.Key.ToString,
+                                                                (New DateTimeOffset(TimedEvent.Value).ToUnixTimeMilliseconds() / 1000.0).ToString(
+                                                                "0.000",
+                                                                Globalization.CultureInfo.InvariantCulture))
+                End If
+            Next
 
 
         Else

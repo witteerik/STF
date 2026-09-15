@@ -366,7 +366,7 @@ Public Class TestTrial
                     If TimedEvent.Item1 = TimedTrialEvents.TrialStarted Then
                         TrialStartTime = TimedEvent.Item2
 
-                        Output.Add(TimedEvent.Item1.ToString & ": " & TimedEvent.Item2.ToString())
+                        Output.Add(TimedEvent.Item1.ToString & ": " & New DateTimeOffset(TimedEvent.Item2).ToString("yyyy-MM-ddTHH:mm:ss.fffzzz"))
 
                         Exit For
                     End If
