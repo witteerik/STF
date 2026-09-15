@@ -261,7 +261,8 @@ Public Class SipTest_TsfcStudy
             Dim FixedPnrs As New SortedList(Of String, Double())
             For Each TWG In Preset
                 ' TODO: Add the PNRs to test for each specific TWG
-                FixedPnrs.Add(TWG.PrimaryStringRepresentation, {-9, -6, -4, -2, 0, 3})
+                'FixedPnrs.Add(TWG.PrimaryStringRepresentation, {-9, -6, -4, -2, 0, 3})
+                FixedPnrs.Add(TWG.PrimaryStringRepresentation, {-12, -9, -6, -3, 0})
             Next
 
 
