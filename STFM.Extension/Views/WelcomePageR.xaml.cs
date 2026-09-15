@@ -16,6 +16,7 @@ public partial class WelcomePageR : ContentView
 
     public event EventHandler<EventArgs> StartCalibrator;
 
+
     // Using only Swedish for now, as English is not implemented everywhere
     public static List<STFN.Core.Utils.EnumCollection.Languages> AvailableGuiLanguages = new List<STFN.Core.Utils.EnumCollection.Languages> { STFN.Core.Utils.EnumCollection.Languages.Swedish };
     //public static List<STFN.Utils.Constants.Languages> AvailableGuiLanguages = new List<STFN.Utils.Constants.Languages> { STFN.Utils.Constants.Languages.English, STFN.Utils.Constants.Languages.Swedish };
@@ -72,6 +73,7 @@ public partial class WelcomePageR : ContentView
                 Calibrator_Button.Text = "Calibration";
                 UseCalibrationCheck_Label.Text = "Show calibration check in test settings";
                 ExportAllSounds_Label.Text = "Export all played sounds";
+                ClearCache_Button.Text = "Clear cache";
                 break;
             case STFN.Core.Utils.EnumCollection.Languages.Swedish:
 
@@ -86,6 +88,8 @@ public partial class WelcomePageR : ContentView
                 Calibrator_Button.Text = "Kalibrering";
                 UseCalibrationCheck_Label.Text = "Visa kalibreringskontroll i testinställningar";
                 ExportAllSounds_Label.Text = "Exportera alla uppspelade ljud";
+                ClearCache_Button.Text = "Rensa cache";
+
                 break;
             default:
 
@@ -99,6 +103,7 @@ public partial class WelcomePageR : ContentView
                 Calibrator_Button.Text = "Calibration";
                 UseCalibrationCheck_Label.Text = "Show calibration check in test settings";
                 ExportAllSounds_Label.Text = "Export all played sounds";
+                ClearCache_Button.Text = "Clear cache";
                 break;
         }
 
@@ -239,4 +244,20 @@ public partial class WelcomePageR : ContentView
     {
         Globals.StfBase.LogAllPlayedSoundFiles = e.Value;
     }
+
+
+    private async void ClearCache_Button_Clicked(object sender, EventArgs e)
+    {
+
+        bool clearCacheQuestionResult = await Messager.MsgBoxAcceptQuestion("Are you sure you want to clear the cache? This will delete all cached data and may affect performance.", "Clear cache", "Yes", "No");
+        if (clearCacheQuestionResult == true)
+        {
+
+            STFM.StfmBase.ClearAppCache(sender, e);
+
+            Messager.MsgBox("Cache cleared successfully.", Messager.MsgBoxStyle.Information, "Cache cleared");
+        }
+    }
+  
+
 }

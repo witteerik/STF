@@ -54,7 +54,7 @@
         </Frame>
 
         <Grid Grid.Row="2" Grid.Column="0" 
-                RowDefinitions= "1*, 1* ,1*"
+                RowDefinitions= "1*, 1* ,1*, 1*"
                 ColumnDefinitions="3*,1*"
                 HorizontalOptions="Center" VerticalOptions="End" 
                 WidthRequest="400" Margin="0,0,0,15" >
@@ -89,6 +89,12 @@
                         Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
                         HorizontalOptions="Fill" VerticalOptions="Fill" 
                         Clicked="Calibrator_Button_Clicked" 
+                        BackgroundColor="Orange"></Button>
+
+            <Button x:Name="ClearCache_Button" 
+                        Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+                        HorizontalOptions="Fill" VerticalOptions="Fill" 
+                        Clicked="ClearCache_Button_Clicked" 
                         BackgroundColor="Red"></Button>
 
         </Grid>

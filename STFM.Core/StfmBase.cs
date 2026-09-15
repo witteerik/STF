@@ -749,12 +749,10 @@ namespace STFM
             Preferences.Default.Remove(e.VariableName);
         }
 
-        static void ClearAppCache(object? sender, EventArgs? e)
+        public static void ClearAppCache(object? sender, EventArgs? e)
         {
             Preferences.Default.Clear();
         }
-
-
 
     }
 }
