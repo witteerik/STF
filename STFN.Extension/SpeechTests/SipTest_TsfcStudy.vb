@@ -18,9 +18,9 @@ Public Class SipTest_TsfcStudy
     Private TestSectionTripletCount As Integer = 40
     Private FixedTestWordPresentations As Integer = 3 ' The number each test word is presented in each condition in the fixed stimuli test
 
-    Private StartAdaptiveLevel As Double = 0
+    Private TrialsPerTWG As Integer = 15 ' The number of trials per test word group
 
-    Private MaximumTestTrials As Integer = 50
+    Private StartAdaptiveLevel As Double = -6
 
     Private MinPNR As Double = -20
     Private MaxPNR As Double = 15
@@ -28,11 +28,8 @@ Public Class SipTest_TsfcStudy
 
     Private TestProtocols As Dictionary(Of String, TestProtocol)
     Private TestProtocolCompleted As New Dictionary(Of String, Boolean)
-    Private AdaptiveLevelHistory As Dictionary(Of String, List(Of Double))
 
-
-
-    Public IsTSFC As Boolean = False
+    Private ReadOnly Property IsTSFC As Boolean = False
 
     Public IsAdaptive As Boolean = False
 
@@ -82,26 +79,31 @@ Public Class SipTest_TsfcStudy
     End Function
 
 
-    Public Sub New(ByVal SpeechMaterialName As String)
+    Public Sub New(ByVal SpeechMaterialName As String, ByVal IsTSFC As Boolean)
         MyBase.New(SpeechMaterialName)
+
+        Me.IsTSFC = IsTSFC
+
         ApplyTestSpecificSettings()
     End Sub
 
     Public Shadows Sub ApplyTestSpecificSettings()
 
-        TesterInstructions = "--  SiP  --" & vbCrLf & vbCrLf &
-             "För detta test behövs inga inställningar." & vbCrLf & vbCrLf &
-             "1. Informera deltagaren om hur testet går till." & vbCrLf &
-             "2. Vänd skärmen till deltagaren. Be sedan deltagaren klicka på start för att starta testet."
+        TesterInstructions = ""
 
-        ParticipantInstructions = "--  SiP  --" & vbCrLf & vbCrLf &
-             "Lyssna efter enstaviga ord som uttalas i en stadsmiljö." & vbCrLf &
-             "Välj från svarsalternativen på skärmen det ord du uppfattade. " & vbCrLf &
-             "Gissa om du är osäker." & vbCrLf &
-             "Efter varje ord har du maximalt " & MaximumResponseTime & " sekunder på dig att ange ditt svar." & vbCrLf &
-             "Om svarsalternativen blinkar i röd färg har du inte svarat i tid." & vbCrLf &
-             "Testet består av totalt 30 ord, som blir svårare och svårare ju längre testet går." & vbCrLf &
-             "Starta testet genom att klicka på knappen 'Start'"
+        If IsTSFC = True Then
+
+            ParticipantInstructions = "--  SiP  --" & vbCrLf & vbCrLf &
+             "Vid det här experimentet kommer vi att undersöka hur du uppfattar olika ord i en bullrig miljö.Du kommer att få ett par hörlurar på dig. Framför dig befinner sig en surfplatta, vilken du ska använda för att svara. Testet består av olika enstaviga svenska ord som presenteras i ett vardagligt brus. Det kommer att presenteras ett ord i taget. Efter att ett ord har spelats upp, kommer det att synas en triangel med tre olika svarsalternativ bredvid varje spets. I mitten av triangel befinner sig prick som du kan flytta med fingret. Med hjälp av denna prick ska du ange vilket ord du tror presenterades. Till exempel: Om du känner dig helt säkert på att det var ett visst ord, flyttar du pricken till den spets där det ordet står. Om du väger mellan två av orden, placerar du pricken någonstans mellan deras respektive hörn - alltså längre bort från det ord du uteslutit. Om du är helt osäker på vilket ord det var, låter du pricken vara i mitten. ​
+På detta sätt anger du hur säker du är på vilket ord det var. Du kan använda dig av hela triangelns yta när du ger ditt svar. "
+
+        Else
+
+            ParticipantInstructions = "--  SiP  --" & vbCrLf & vbCrLf &
+             "Vid det här experimentet kommer vi att undersöka hur du uppfattar olika ord i en bullrig miljö. Du kommer att få ett par hörlurar på dig. Framför dig befinner sig en pekskärm, vilken du ska använda för att svara. Testet består av olika enstaviga svenska ord som presenteras i ett vardagligt brus. Det kommer att presenteras ett ord i buller i taget. Efter att ett ord har spelats upp kommer det att visas tre olika svarsalternativ på skärmen. Utav dessa tre ord ska du på skärmen välja vilket ord det var du hörde genom att trycka på detta ord. Om du är osäker, ska du gissa."
+
+        End If
+
 
         ParticipantInstructionsButtonText = "Deltagarinstruktion"
 
@@ -319,7 +321,6 @@ Public Class SipTest_TsfcStudy
         Else
 
             TestProtocols = New Dictionary(Of String, TestProtocol)
-            AdaptiveLevelHistory = New Dictionary(Of String, List(Of Double))
 
             'Adding trials into TestUnits. One TestUnit for each test word group.
             For Each TWG In Preset
@@ -356,21 +357,19 @@ Public Class SipTest_TsfcStudy
 
                 'Also creating test protocols
                 'Setting test protocol, including estimated slope and target score
-                Dim NewTestProtocol = New STFN.Core.BrandKollmeier2002_TestProtocol
-                NewTestProtocol.Slope = 0.034
+                Dim NewTestProtocol = New SmoothedSA
+                NewTestProtocol.alpha = 0.9
+                NewTestProtocol.b = 1
                 If IgnoreNegativeCoordinates = True Then
                     NewTestProtocol.TargetScore = 0.5
                 Else
                     NewTestProtocol.TargetScore = 2 / 3
                 End If
-                NewTestProtocol.EnsureSentenceTest = False
+
                 'Storing the TWG.PrimaryStringRepresentation in the test protocol's TargetStimulusSet
                 NewTestProtocol.TargetStimulusSet = TWG.PrimaryStringRepresentation
 
                 TestProtocols.Add(TWG.PrimaryStringRepresentation, NewTestProtocol)
-
-                'Also adds the key to AdaptiveLevelHistory 
-                AdaptiveLevelHistory.Add(TWG.PrimaryStringRepresentation, New List(Of Double))
 
                 'Adding test test-word groups to TestProtocolCompleted
                 TestProtocolCompleted.Add(TWG.PrimaryStringRepresentation, False)
@@ -549,8 +548,11 @@ Public Class SipTest_TsfcStudy
 
                             Else
 
-                                'Stores the barycentric coordinate as it is (but clamped to the range 0 - 1, just in case it should be slightly off this range - which it should never be, but just in case something went wrong with the limits in the TSFC-GUI) 
-                                CurrentTestTrial.GradedResponse = Math.Clamp(ResponseCandidate.Value, 0, 1)
+                                'Stores the barycentric coordinate clamped to the range 1/3 to 1
+                                CurrentTestTrial.GradedResponse = Math.Clamp(ResponseCandidate.Value, 1 / 3, 1)
+
+                                ''Stores the barycentric coordinate as it is (but clamped to the range 0 - 1, just in case it should be slightly off this range - which it should never be, but just in case something went wrong with the limits in the TSFC-GUI) 
+                                'CurrentTestTrial.GradedResponse = Math.Clamp(ResponseCandidate.Value, 0, 1)
 
                             End If
 
@@ -644,64 +646,21 @@ Public Class SipTest_TsfcStudy
 
             'Initializing the test protocol of this test unit
             If EvaluationTrials.Count = 0 Then
-                Dim TestUnitPlannedTrials = DirectCast(CurrentTestTrial, SipTrial).ParentTestUnit.PlannedTrials
-                TestProtocols(TestUnitPlannedTrials.First.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation).InitializeProtocol(
-                New TestProtocol.NextTaskInstruction With {.AdaptiveValue = StartAdaptiveLevel, .TestLength = TestUnitPlannedTrials.Count})
 
-                'We are in the ballpark stage of this test unit
-                ProtocolReply = New TestProtocol.NextTaskInstruction()
+                'Creating a temporary TestProtocol just to return the start values
+                ProtocolReply = New TestProtocol.NextTaskInstruction With {.AdaptiveValue = StartAdaptiveLevel, .TestLength = TrialsPerTWG}
                 ProtocolReply.Decision = SpeechTestReplies.GotoNextTrial
-                ProtocolReply.AdaptiveValue = StartAdaptiveLevel
-                ProtocolReply.AdaptiveStepSize = 0 'TODO. Check if this value is relevant!
 
             Else
 
-                'Using the selected test protocol
-                'Determining if the level should be update. 
-                Dim AdaptiveEvaluationLength As Integer = 1
-                If EvaluationTrials.Last.IsTSFCTrial = False Then
-                    'TODO Consider if this should be 3 in the MAFC test
-                    AdaptiveEvaluationLength = 1
-                End If
+                'Creating a new test protocol for the TWG
+                Dim TestUnitPlannedTrials = DirectCast(CurrentTestTrial, SipTrial).ParentTestUnit.PlannedTrials
 
-                If (EvaluationTrials.Count - AdaptiveEvaluationLength) Mod AdaptiveEvaluationLength = 0 Then
+                TestProtocols(TestUnitPlannedTrials.First.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation).InitializeProtocol(
+                New TestProtocol.NextTaskInstruction With {.AdaptiveValue = StartAdaptiveLevel, .TestLength = TrialsPerTWG})
 
-                    'Setting EvaluationTrialCount so that EvaluationTrials.GetObservedScore returns the average of the three last trials in the test unti
-                    EvaluationTrials.EvaluationTrialCount = AdaptiveEvaluationLength
-                    ProtocolReply = TestProtocols(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation).NewResponse(EvaluationTrials)
-
-                    'Adding the adaptive level to the AdaptiveLevelHistory 
-                    AdaptiveLevelHistory(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation).Add(ProtocolReply.AdaptiveValue)
-
-                    'Stopping after X reversals
-                    If Math.Abs(ProtocolReply.AdaptiveReversalCount.Value) > 8 Then
-                        ProtocolReply.Decision = TestUnitCompleted(EvaluationTrials)
-                    End If
-
-                    ''Or stopping when the adaptive levels plateau
-                    'Dim AdaptiveLevelStepStoppingCriteriumLength As Integer = 5
-                    'Dim EvaluationList = AdaptiveLevelHistory(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation)
-                    'If EvaluationList.Count > AdaptiveLevelStepStoppingCriteriumLength Then
-                    '    Dim LastLevelSteps = EvaluationList.GetRange(EvaluationList.Count - AdaptiveLevelStepStoppingCriteriumLength, AdaptiveLevelStepStoppingCriteriumLength)
-
-                    '    'Stopping when the adaptive level range falls under 1 dB  
-                    '    If Math.Abs(LastLevelSteps.Max - LastLevelSteps.Min) < 1 Then
-                    '        ProtocolReply.Decision = TestUnitCompleted(EvaluationTrials)
-                    '    End If
-                    'End If
-
-                    'Or if the trial length limit is reached
-                    If EvaluationTrials.Count > MaximumTestTrials Then
-                        ProtocolReply.Decision = TestUnitCompleted(EvaluationTrials)
-                    End If
-
-                Else
-                    'Simply reusing the level from the previous trial
-                    ProtocolReply = New TestProtocol.NextTaskInstruction()
-                    ProtocolReply.Decision = SpeechTestReplies.GotoNextTrial
-                    ProtocolReply.AdaptiveValue = DirectCast(EvaluationTrials.Last, SipTrial).PNR
-                    ProtocolReply.AdaptiveStepSize = 0
-                End If
+                'Using the test protocol of the last presented test word
+                ProtocolReply = TestProtocols(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation).NewResponse(EvaluationTrials)
 
             End If
 

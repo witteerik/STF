@@ -44,6 +44,8 @@ Public Class TestTrialCollection
         Dim StartIndex As Integer = Math.Clamp(Me.Count - EvaluationTrialCount, 0, Me.Count - 1)
         Dim StopIndex As Integer = Me.Count - 1
 
+        'TODO: There is a BUG here!!! When has this been used?
+
         For i = StartIndex To StopIndex
             If Me(i).IsTSFCTrial = False Then
                 AveragingList.Add(Me(i).GetProportionTasksCorrect)

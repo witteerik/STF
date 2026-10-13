@@ -116,11 +116,10 @@ namespace STFM.Extension
                     speechTestInitiator.SelectedSpeechMaterialName = "Swedish SiP-test"; // Leave as an empty string if the user should select manually
 
                     // Creating the speech test instance, and also stores it in SharedSpeechTestObjects
-                    speechTestInitiator.SpeechTest = new STFN.Extension.SipTest_TsfcStudy(speechTestInitiator.SelectedSpeechMaterialName);
+                    speechTestInitiator.SpeechTest = new STFN.Extension.SipTest_TsfcStudy(speechTestInitiator.SelectedSpeechMaterialName, true);
                     SharedSpeechTestObjects.CurrentSpeechTest = speechTestInitiator.SpeechTest;
 
                     // Setting IsTSFC to true
-                    ((STFN.Extension.SipTest_TsfcStudy)SharedSpeechTestObjects.CurrentSpeechTest).IsTSFC = true;
                     ((STFN.Extension.SipTest_TsfcStudy)SharedSpeechTestObjects.CurrentSpeechTest).IsAdaptive = true;
 
                     // Creating a test options view
@@ -162,11 +161,10 @@ namespace STFM.Extension
                     speechTestInitiator.SelectedSpeechMaterialName = "Swedish SiP-test"; // Leave as an empty string if the user should select manually
 
                     // Creating the speech test instance, and also stores it in SharedSpeechTestObjects
-                    speechTestInitiator.SpeechTest = new STFN.Extension.SipTest_TsfcStudy(speechTestInitiator.SelectedSpeechMaterialName);
+                    speechTestInitiator.SpeechTest = new STFN.Extension.SipTest_TsfcStudy(speechTestInitiator.SelectedSpeechMaterialName, false);
                     SharedSpeechTestObjects.CurrentSpeechTest = speechTestInitiator.SpeechTest;
 
                     // Setting IsTSFC to false
-                    ((STFN.Extension.SipTest_TsfcStudy)SharedSpeechTestObjects.CurrentSpeechTest).IsTSFC = false;
                     ((STFN.Extension.SipTest_TsfcStudy)SharedSpeechTestObjects.CurrentSpeechTest).IsAdaptive = true;
 
                     // Creating a test options view
@@ -208,11 +206,10 @@ namespace STFM.Extension
                     speechTestInitiator.SelectedSpeechMaterialName = "Swedish SiP-test"; // Leave as an empty string if the user should select manually
 
                     // Creating the speech test instance, and also stores it in SharedSpeechTestObjects
-                    speechTestInitiator.SpeechTest = new STFN.Extension.SipTest_TsfcStudy(speechTestInitiator.SelectedSpeechMaterialName);
+                    speechTestInitiator.SpeechTest = new STFN.Extension.SipTest_TsfcStudy(speechTestInitiator.SelectedSpeechMaterialName, true);
                     SharedSpeechTestObjects.CurrentSpeechTest = speechTestInitiator.SpeechTest;
 
                     // Setting IsTSFC to true
-                    ((STFN.Extension.SipTest_TsfcStudy)SharedSpeechTestObjects.CurrentSpeechTest).IsTSFC = true;
                     ((STFN.Extension.SipTest_TsfcStudy)SharedSpeechTestObjects.CurrentSpeechTest).IsAdaptive = false;
 
                     // Creating a test options view
@@ -253,11 +250,10 @@ namespace STFM.Extension
                     speechTestInitiator.SelectedSpeechMaterialName = "Swedish SiP-test"; // Leave as an empty string if the user should select manually
 
                     // Creating the speech test instance, and also stores it in SharedSpeechTestObjects
-                    speechTestInitiator.SpeechTest = new STFN.Extension.SipTest_TsfcStudy(speechTestInitiator.SelectedSpeechMaterialName);
+                    speechTestInitiator.SpeechTest = new STFN.Extension.SipTest_TsfcStudy(speechTestInitiator.SelectedSpeechMaterialName, false);
                     SharedSpeechTestObjects.CurrentSpeechTest = speechTestInitiator.SpeechTest;
 
                     // Setting IsTSFC to false
-                    ((STFN.Extension.SipTest_TsfcStudy)SharedSpeechTestObjects.CurrentSpeechTest).IsTSFC = false;
                     ((STFN.Extension.SipTest_TsfcStudy)SharedSpeechTestObjects.CurrentSpeechTest).IsAdaptive = false;
 
                     // Creating a test options view
