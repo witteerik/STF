@@ -20,11 +20,13 @@ Public Class SipTest_TsfcStudy
 
     Private TrialsPerTWG As Integer = 15 ' The number of trials per test word group
 
+    Private TotalPractiseTrials As Integer = 6 ' This equals the number of practise trials per test word group times the number of test word groups
+
     Private StartAdaptiveLevel As Double = -6
+    Private PractiseTestLevel As Double = 0
 
     Private MinPNR As Double = -20
     Private MaxPNR As Double = 15
-    Private IgnoreNegativeCoordinates As Boolean = False
 
     Private TestProtocols As Dictionary(Of String, TestProtocol)
     Private TestProtocolCompleted As New Dictionary(Of String, Boolean)
@@ -35,9 +37,7 @@ Public Class SipTest_TsfcStudy
 
     'Setting the sound source locations
     Private SipTargetStimulusLocations As SoundSourceLocation() = {New SoundSourceLocation With {.HorizontalAzimuth = 0, .Distance = 3}}
-    'Private SipMaskerLocations As SoundSourceLocation() = {
-    '        New SoundSourceLocation With {.HorizontalAzimuth = -30, .Distance = 3},
-    '        New SoundSourceLocation With {.HorizontalAzimuth = 30, .Distance = 3}}
+
     Private SipMaskerLocations As SoundSourceLocation() = {
             New SoundSourceLocation With {.HorizontalAzimuth = 0, .Distance = 3}}
 
@@ -107,12 +107,7 @@ På detta sätt anger du hur säker du är på vilket ord det var. Du kan använ
 
         ParticipantInstructionsButtonText = "Deltagarinstruktion"
 
-        'ShowGuiChoice_SoundFieldSimulation = True
-
         DirectionalSimulationSet = "OL-HEAD_BuK_ECEbl - 48kHz"
-        'DirectionalSimulationSet = "ARC - Harcellen - HATS - SiP - HR"
-        'DirectionalSimulationSet = "ARC - Harcellen - HATS - SiP"
-        ' DirectionalSimulationSet = "ARC - Harcellen - HATS 256 - 48kHz"
 
         PopulateSoundSourceLocationCandidates()
         SimulatedSoundField = True
@@ -129,7 +124,7 @@ På detta sätt anger du hur säker du är på vilket ord det var. Du kan använ
         MinimumStimulusOnsetTime = 0.3 + 0.3 ' 0.3 in sound field
         MaximumStimulusOnsetTime = 0.8 + 0.3 ' 0.3 in sound field
         ResponseAlternativeDelay = 0.1
-
+        ShowGuiChoice_PractiseTest = True
 
     End Sub
 
@@ -137,12 +132,11 @@ På detta sätt anger du hur säker du är på vilket ord det var. Du kan använ
 
 
     Private PresetName As String = "TSFC26"
+    Private PractisePresetName As String = "TSFC26_Practise"
 
     'Private ResultsSummary As SortedList(Of Double, Tuple(Of SipTestList, Double))
 
     Public Overrides Function InitializeCurrentTest() As Tuple(Of Boolean, String)
-
-        'Transducer = AvaliableTransducers(1)
 
         CurrentSipTestMeasurement = New SipMeasurement(CurrentParticipantID, SpeechMaterial.ParentTestSpecification, SiPTestProcedure.AdaptiveTypes.Fixed, SelectedTestparadigm)
 
@@ -160,9 +154,6 @@ På detta sätt anger du hur säker du är på vilket ord det var. Du kan använ
         If SimulatedSoundField = True Then
             SelectedSoundPropagationType = SoundPropagationTypes.SimulatedSoundField
 
-            'Dim AvailableSets = DirectionalSimulator.GetAvailableDirectionalSimulationSets(SelectedTransducer)
-            'DirectionalSimulator.TrySetSelectedDirectionalSimulationSet(AvailableSets(1), SelectedTransducer, False)
-
             Dim FoundDirSimulator As Boolean = Globals.StfBase.DirectionalSimulator.TrySetSelectedDirectionalSimulationSet(DirectionalSimulationSet, Transducer, False)
             If FoundDirSimulator = False Then
                 Return New Tuple(Of Boolean, String)(False, "Unable to find the directional simulation set " & DirectionalSimulationSet)
@@ -170,6 +161,11 @@ På detta sätt anger du hur säker du är på vilket ord det var. Du kan använ
 
         Else
             SelectedSoundPropagationType = SoundPropagationTypes.PointSpeakers
+        End If
+
+        'Overriding StartAdaptiveLevel in practise tests
+        If IsPractiseTest = True Then
+            StartAdaptiveLevel = PractiseTestLevel
         End If
 
         'Setting up test trials to run
@@ -188,56 +184,7 @@ På detta sätt anger du hur säker du är på vilket ord det var. Du kan använ
 
         Throw New NotImplementedException
 
-        'Dim PnrScoresList = GetPnrScores()
-        'Dim OutputList = New SortedList(Of Double, Double)
-
-        'For Each kvp In PnrScoresList
-        '    OutputList.Add(kvp.Key, kvp.Value.Item2)
-        'Next
-
-        'Return New Tuple(Of String, SortedList(Of Double, Double))("PNR (dB)", OutputList)
-
     End Function
-
-    'Public Function GetPnrScores() As SortedList(Of Double, Tuple(Of SipTestList, Double))
-
-    '    Dim ResultList As New List(Of Tuple(Of SipTestList, Double)) ' QuickSipList, MeanScore
-
-    '    For i = 0 To SipTestLists.Count - 1
-
-    '        Dim CurrentSipTestList = SipTestLists(i)
-    '        Dim CurrentScoresList As New List(Of Double)
-
-    '        For Each Trial In CurrentSipTestMeasurement.ObservedTrials
-    '            If Trial.MediaSet Is CurrentSipTestList.MediaSet And
-    '                    Trial.PNR = CurrentSipTestList.PNR And
-    '                    Trial.SpeechMaterialComponent.ParentComponent Is CurrentSipTestList.SMC Then
-
-    '                If Trial.IsCorrect = True Then
-    '                    CurrentScoresList.Add(1)
-    '                Else
-    '                    CurrentScoresList.Add(0)
-    '                End If
-
-    '            End If
-    '        Next
-
-    '        Dim AverageScore As Double = Double.NaN
-    '        If CurrentScoresList.Count > 0 Then
-    '            AverageScore = CurrentScoresList.Average
-    '        End If
-
-    '        ResultList.Add(New Tuple(Of SipTestList, Double)(CurrentSipTestList, AverageScore))
-    '    Next
-
-    '    Dim PnrSortedList As New SortedList(Of Double, Tuple(Of SipTestList, Double))
-    '    For Each Result In ResultList
-    '        PnrSortedList.Add(Result.Item1.PNR, Result)
-    '    Next
-
-    '    Return PnrSortedList
-
-    'End Function
 
 
     Private Sub PlanSiPTrials(ByVal SoundPropagationType As SoundPropagationTypes, Optional ByVal RandomSeed As Integer? = Nothing)
@@ -256,7 +203,16 @@ På detta sätt anger du hur säker du är på vilket ord det var. Du kan använ
         If RandomSeed.HasValue Then CurrentSipTestMeasurement.Randomizer = New Random(RandomSeed)
 
         'Getting the preset
-        Dim Preset = CurrentSipTestMeasurement.ParentTestSpecification.SpeechMaterial.Presets.GetPreset(PresetName).Members
+        Dim Preset As List(Of SpeechMaterialComponent) = Nothing
+
+        If IsPractiseTest = True Then
+            Preset = CurrentSipTestMeasurement.ParentTestSpecification.SpeechMaterial.Presets.GetPreset(PractisePresetName).Members
+
+        Else
+            'If this is a real test, we use all test word groups in the preset
+            Preset = CurrentSipTestMeasurement.ParentTestSpecification.SpeechMaterial.Presets.GetPreset(PresetName).Members
+
+        End If
 
         If IsAdaptive = False Then
 
@@ -332,7 +288,7 @@ På detta sätt anger du hur säker du är på vilket ord det var. Du kan använ
                 Dim TestWords = TWG.GetChildren
 
                 'Adding test section trials
-                For i = 0 To TestSectionTripletCount - 1
+                For i = 0 To TrialsPerTWG / TestWords.Count - 1
 
                     'Getting a vector of test word indices to draw
                     Dim RandomIndices = STFN.Core.DSP.SampleWithoutReplacement(TestWords.Count, 0, TestWords.Count)
@@ -360,11 +316,7 @@ På detta sätt anger du hur säker du är på vilket ord det var. Du kan använ
                 Dim NewTestProtocol = New SmoothedSA
                 NewTestProtocol.alpha = 0.9
                 NewTestProtocol.b = 1
-                If IgnoreNegativeCoordinates = True Then
-                    NewTestProtocol.TargetScore = 0.5
-                Else
-                    NewTestProtocol.TargetScore = 2 / 3
-                End If
+                NewTestProtocol.TargetScore = 2 / 3
 
                 'Storing the TWG.PrimaryStringRepresentation in the test protocol's TargetStimulusSet
                 NewTestProtocol.TargetStimulusSet = TWG.PrimaryStringRepresentation
@@ -389,6 +341,22 @@ På detta sätt anger du hur säker du är på vilket ord det var. Du kan använ
                 Next
             Next
 
+        End If
+
+        'Removing all but TotalPractiseTrials trials in practise tests
+        If IsPractiseTest = True Then
+            Dim RemainingTrials As New List(Of SipTrial)
+            For i = 0 To TotalPractiseTrials - 1
+                RemainingTrials.Add(CurrentSipTestMeasurement.PlannedTrials(i))
+            Next
+            CurrentSipTestMeasurement.PlannedTrials = RemainingTrials
+        End If
+
+        'Overriding the test PNR by PractiseTestLevel in Fixed mode Practise tests 
+        If IsPractiseTest = True Then
+            For i = 0 To CurrentSipTestMeasurement.PlannedTrials.Count - 1
+                CurrentSipTestMeasurement.PlannedTrials(i).SetLevels(ReferenceLevel, PractiseTestLevel)
+            Next
         End If
 
     End Sub
@@ -535,26 +503,8 @@ På detta sätt anger du hur säker du är på vilket ord det var. Du kan använ
                         Dim CorrectResponse = CurrentTestTrial.SpeechMaterialComponent.GetCategoricalVariableValue("Spelling")
                         If CorrectResponse = ResponseCandidate.Key Then
 
-                            If IgnoreNegativeCoordinates = True Then
-
-                                'The incoming coordinate (for the correct response alternative) is here streched linearly from the range 1/3 - 1 to 0 - 1
-                                Dim BarycentricCoordinate As Double = (3 * ResponseCandidate.Value - 1) / 2
-
-                                'And clamped to the range 0 - 1
-                                BarycentricCoordinate = Math.Clamp(BarycentricCoordinate, 0, 1)
-
-                                'And storing it in the trial
-                                CurrentTestTrial.GradedResponse = BarycentricCoordinate
-
-                            Else
-
-                                'Stores the barycentric coordinate clamped to the range 1/3 to 1
-                                CurrentTestTrial.GradedResponse = Math.Clamp(ResponseCandidate.Value, 1 / 3, 1)
-
-                                ''Stores the barycentric coordinate as it is (but clamped to the range 0 - 1, just in case it should be slightly off this range - which it should never be, but just in case something went wrong with the limits in the TSFC-GUI) 
-                                'CurrentTestTrial.GradedResponse = Math.Clamp(ResponseCandidate.Value, 0, 1)
-
-                            End If
+                            'Stores the barycentric coordinate clamped to the range 1/3 to 1
+                            CurrentTestTrial.GradedResponse = Math.Clamp(ResponseCandidate.Value, 1 / 3, 1)
 
                             'Exiting the loop
                             Exit For
@@ -649,6 +599,7 @@ På detta sätt anger du hur säker du är på vilket ord det var. Du kan använ
 
                 'Creating a temporary TestProtocol just to return the start values
                 ProtocolReply = New TestProtocol.NextTaskInstruction With {.AdaptiveValue = StartAdaptiveLevel, .TestLength = TrialsPerTWG}
+
                 ProtocolReply.Decision = SpeechTestReplies.GotoNextTrial
 
             Else
@@ -657,7 +608,7 @@ På detta sätt anger du hur säker du är på vilket ord det var. Du kan använ
                 Dim TestUnitPlannedTrials = DirectCast(CurrentTestTrial, SipTrial).ParentTestUnit.PlannedTrials
 
                 TestProtocols(TestUnitPlannedTrials.First.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation).InitializeProtocol(
-                New TestProtocol.NextTaskInstruction With {.AdaptiveValue = StartAdaptiveLevel, .TestLength = TrialsPerTWG})
+                    New TestProtocol.NextTaskInstruction With {.AdaptiveValue = StartAdaptiveLevel, .TestLength = TrialsPerTWG})
 
                 'Using the test protocol of the last presented test word
                 ProtocolReply = TestProtocols(EvaluationTrials.Last.SpeechMaterialComponent.ParentComponent.PrimaryStringRepresentation).NewResponse(EvaluationTrials)
@@ -838,32 +789,12 @@ På detta sätt anger du hur säker du är på vilket ord det var. Du kan använ
 
     End Function
 
-    Private TwgProtocolCombinations As New SortedList(Of String, String)
 
     Public Overrides Function GetResultStringForGui() As String
 
         'This is not used
 
         Return ""
-
-        'Dim Output As New List(Of String)
-
-        'Dim AverageScore As Double? = GetAverageScore()
-        'If AverageScore.HasValue Then
-        '    Output.Add("Overall score: " & DSP.Rounding(100 * GetAverageScore()) & "%")
-        'End If
-
-        'ResultsSummary = GetPnrScores()
-
-        'If ResultsSummary IsNot Nothing Then
-        '    Output.Add("Scores per PNR level:")
-        '    Output.Add("PNR (dB)" & vbTab & "Score" & vbTab & "List")
-        '    For Each kvp In ResultsSummary
-        '        Output.Add(kvp.Value.Item1.PNR & vbTab & DSP.Rounding(100 * kvp.Value.Item2) & " %" & vbTab & kvp.Value.Item1.SMC.PrimaryStringRepresentation)
-        '    Next
-        'End If
-
-        'Return String.Join(vbCrLf, Output)
 
     End Function
 
