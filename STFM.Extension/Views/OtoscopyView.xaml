@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="STFM.Extension.Views.OtoscopyView"
+             BackgroundColor="{AppThemeBinding Light=#F7F8FA, Dark=#17191D}">
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="12">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <Label Text="Otoscopy" FontSize="24" FontAttributes="Bold"
+                       VerticalOptions="Center" />
+                <Button x:Name="ReconnectButton" Grid.Column="1" Text="Reconnect"
+                        Clicked="ReconnectClicked" MinimumHeightRequest="44"
+                        SemanticProperties.Description="Reconnect to the USB camera" />
+            </Grid>
+
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                <ActivityIndicator x:Name="BusyIndicator" IsVisible="False"
+                                   WidthRequest="22" HeightRequest="22" />
+                <Label x:Name="StatusLabel" Grid.Column="1"
+                       Text="Connect a USB camera to begin."
+                       VerticalOptions="Center" FontSize="14" />
+            </Grid>
+
+            <Picker x:Name="CameraPicker" Title="USB camera" IsVisible="False"
+                    SelectedIndexChanged="CameraSelectionChanged"
+                    SemanticProperties.Description="Select the USB camera" />
+
+            <Border x:Name="PreviewFrame" HeightRequest="280" BackgroundColor="#101216"
+                    Stroke="#383C45" StrokeThickness="1" StrokeShape="RoundRectangle 8">
+                <Grid x:Name="PreviewHost" />
+            </Border>
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                <Border Stroke="#397BC4" StrokeThickness="2" StrokeShape="RoundRectangle 8"
+                        Padding="10" BackgroundColor="{AppThemeBinding Light=White, Dark=#22252B}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Left ear" TextColor="#397BC4" FontAttributes="Bold" FontSize="18" />
+                        <Grid HeightRequest="140">
+                            <Label x:Name="LeftPlaceholder" Text="No image yet"
+                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                            <Image x:Name="LeftPreview" Aspect="AspectFit"
+                                   SemanticProperties.Description="Left ear otoscopy image" />
+                        </Grid>
+                        <Button x:Name="CaptureLeftButton" Text="Capture left" IsEnabled="False"
+                                BackgroundColor="#2465A9" TextColor="White"
+                                MinimumHeightRequest="48" Clicked="CaptureLeftClicked" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Grid.Column="1" Stroke="#C64949" StrokeThickness="2"
+                        StrokeShape="RoundRectangle 8" Padding="10"
+                        BackgroundColor="{AppThemeBinding Light=White, Dark=#22252B}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Right ear" TextColor="#C64949" FontAttributes="Bold" FontSize="18" />
+                        <Grid HeightRequest="140">
+                            <Label x:Name="RightPlaceholder" Text="No image yet"
+                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                            <Image x:Name="RightPreview" Aspect="AspectFit"
+                                   SemanticProperties.Description="Right ear otoscopy image" />
+                        </Grid>
+                        <Button x:Name="CaptureRightButton" Text="Capture right" IsEnabled="False"
+                                BackgroundColor="#AF3434" TextColor="White"
+                                MinimumHeightRequest="48" Clicked="CaptureRightClicked" />
+                    </VerticalStackLayout>
+                </Border>
+            </Grid>
+
+            <Button x:Name="ClearButton" Text="Clear both images" IsEnabled="False"
+                    BackgroundColor="Transparent" BorderColor="#858B96" BorderWidth="1"
+                    TextColor="{AppThemeBinding Light=#242832, Dark=White}"
+                    MinimumHeightRequest="44" Clicked="ClearClicked" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentView>

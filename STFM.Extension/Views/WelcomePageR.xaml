@@ -54,7 +54,7 @@
         </Frame>
 
         <Grid Grid.Row="2" Grid.Column="0" 
-                RowDefinitions= "1*, 1* ,1*, 1*"
+                RowDefinitions= "1*, 1* ,1*, 1*, 1*"
                 ColumnDefinitions="3*,1*"
                 HorizontalOptions="Center" VerticalOptions="End" 
                 WidthRequest="400" Margin="0,0,0,15" >
@@ -96,6 +96,14 @@
                         HorizontalOptions="Fill" VerticalOptions="Fill" 
                         Clicked="ClearCache_Button_Clicked" 
                         BackgroundColor="Red"></Button>
+
+            <Button x:Name="StartOtoscopy_Button"
+                    Text="Otoscopy"
+                        Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
+                        HorizontalOptions="Fill" VerticalOptions="Fill" 
+                        Clicked="StartOtoscopy_Button_Clicked" 
+                        BackgroundColor="LightGreen"></Button>
+
 
         </Grid>
 

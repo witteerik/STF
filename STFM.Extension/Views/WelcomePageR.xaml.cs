@@ -258,6 +258,16 @@ public partial class WelcomePageR : ContentView
             Messager.MsgBox("Cache cleared successfully.", Messager.MsgBoxStyle.Information, "Cache cleared");
         }
     }
-  
+
+    private void StartOtoscopy_Button_Clicked(object sender, EventArgs e)
+    {
+        Content = new OtoscopyView
+        {
+            VerticalOptions = LayoutOptions.Fill,
+            HorizontalOptions = LayoutOptions.Fill
+        };
+    }
+
+
 
 }

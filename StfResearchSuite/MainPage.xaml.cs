@@ -76,6 +76,10 @@ namespace OstfTabletSuite
             Messager.OnGetOpenFilePaths += GetOpenFilePaths;
             Messager.OnCloseAppRequest += CloseApp;
 
+            // Testing otoscopy view
+            //Content = new STFM.Extension.Views.OtoscopyView();
+
+
         }
 
         public void WelcomePageAllDone(object sender, EventArgs e)

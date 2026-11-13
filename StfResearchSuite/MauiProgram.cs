@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
+using STFM.Extension;
 
 namespace OstfTabletSuite
 {
@@ -11,6 +12,7 @@ namespace OstfTabletSuite
             builder
                 .UseMauiApp<App>()
                 .UseMauiCommunityToolkit()
+                .UseOtoscopy()
                 .ConfigureFonts(fonts =>
                 {
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");

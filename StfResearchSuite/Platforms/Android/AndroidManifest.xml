@@ -9,6 +9,12 @@
 	<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 	<uses-permission android:name="android.permission.RECORD_AUDIO" />
 
+	<!-- Otoscopy is optional; do not exclude devices without a built-in camera or USB host. -->
+	<uses-permission android:name="android.permission.CAMERA" />
+	<uses-feature android:name="android.hardware.camera" android:required="false" />
+	<uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+	<uses-feature android:name="android.hardware.usb.host" android:required="false" />
+
 	<!--For future app-initiated BT connections, we should probably also add (Required on Android 12+):
 	<uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 	<uses-permission android:name="android.permission.BLUETOOTH_SCAN" />-->
