@@ -27,6 +27,10 @@ internal sealed class AndroidUsbOtoscopyCamera : IOtoscopyCamera
     private readonly Context context = global::Android.App.Application.Context;
     private UsbChangeReceiver? receiver;
     private VideoCaptureCoreX? core;
+    // Keep ownership of an in-flight (or failed) shutdown after clearing core.
+    // A timeout is not cancellation and must never permit another USB open.
+    private Task shutdownTask = Task.CompletedTask;
+    private bool shutdownWaitTimedOut;
     private string? connectedDeviceId;
     private HashSet<string> knownDeviceIds = [];
     private volatile bool isConnected;
@@ -257,11 +261,50 @@ internal sealed class AndroidUsbOtoscopyCamera : IOtoscopyCamera
         isConnected = false;
         connectedDeviceId = null;
         var oldCore = core;
-        core = null;
-        if (oldCore is null)
-            return;
-        oldCore.OnError -= CoreOnError;
-        await oldCore.DisposeAsync();
+        if (oldCore is not null)
+        {
+            core = null;
+            oldCore.OnError -= CoreOnError;
+            shutdownWaitTimedOut = false;
+            shutdownTask = StopAndDisposeCoreAsync(oldCore);
+        }
+
+        // The view serializes start/capture/stop. Repeated cleanup calls must still
+        // join this same task, even if the first caller stopped waiting for it.
+        if (shutdownWaitTimedOut && !shutdownTask.IsCompleted)
+            throw new InvalidOperationException("The camera is still stopping. No new stream was opened. Close and restart the app before continuing.");
+
+        try
+        {
+            await shutdownTask.WaitAsync(TimeSpan.FromSeconds(15));
+        }
+        catch (TimeoutException) when (!shutdownTask.IsFaulted)
+        {
+            shutdownWaitTimedOut = true;
+            lastError = "Camera shutdown did not finish within 15 seconds. No new stream was opened. Close and restart the app before continuing.";
+            throw new InvalidOperationException(lastError);
+        }
+        catch (Exception ex)
+        {
+            lastError = "Camera shutdown failed. No new stream was opened. Close and restart the app before continuing.";
+            // Leave the failed task in place: another connection must not bypass
+            // an engine whose USB resources may not have been released safely.
+            throw new InvalidOperationException(lastError, ex);
+        }
+    }
+
+    private static async Task StopAndDisposeCoreAsync(VideoCaptureCoreX oldCore)
+    {
+        // Await stream shutdown before disposing the engine. No delays, blocking
+        // waits, overlapping cleanup, or forced USB reset are used here.
+        try
+        {
+            await oldCore.StopAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            await oldCore.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
     public async ValueTask DisposeAsync()

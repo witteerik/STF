@@ -134,9 +134,15 @@ Pinned Android dependencies:
 
 | Package | Version |
 | --- | --- |
-| `VisioForge.DotNet.VideoCapture` | `2026.11.6` |
-| `VisioForge.DotNet.Core.UI.MAUI` | `2026.11.6` |
+| `VisioForge.DotNet.VideoCapture` | `2026.11.12` |
+| `VisioForge.DotNet.Core.UI.MAUI` | `2026.11.12` |
 | `VisioForge.CrossPlatform.Core.Android` | `2026.11.5` |
+
+The MAUI Controls and Compatibility references are aligned to **10.0.110** in
+STFM.Core, STFM.Extension and StfResearchSuite, as required by this SDK UI package.
+The projects continue targeting .NET 10. The managed SDK update includes vendor
+fixes for overlapping start/stop/dispose operations and an MJPEG camera memory
+leak on repeated starts.
 
 The small official Android companion project is included in
 `ThirdParty/VisioForge.Android`; its source revision and notices are documented
@@ -164,6 +170,15 @@ use VisioForge's `SetLicenseCertificateAsync` on each newly created engine befor
 starting it; keep licence material out of source control. The module initializes
 the SDK lazily and disposes each camera engine, while keeping the shared SDK
 runtime available for the process lifetime.
+
+Every disconnect now awaits `StopAsync()` before `DisposeAsync()`. The view's
+operation semaphore keeps this sequence ahead of the next camera open. Repeated
+cleanup calls join the same shutdown task. If it faults, subsequent connections
+on that camera service remain blocked; restart the app to recover. A 15-second
+wait timeout reports the problem but does not cancel native shutdown or permit
+a new stream while it is still running. A later retry can proceed only if that
+shutdown actually completed successfully. No forced USB reset or arbitrary
+settling delay is used.
 
 ## Device verification
 

@@ -19,14 +19,14 @@
 	</PropertyGroup>-->
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.Maui.Controls" Version="10.0.101" />
-		<PackageReference Include="Microsoft.Maui.Controls.Compatibility" Version="10.0.101" />
+		<PackageReference Include="Microsoft.Maui.Controls" Version="10.0.110" />
+		<PackageReference Include="Microsoft.Maui.Controls.Compatibility" Version="10.0.110" />
 	</ItemGroup>
 
 	<!-- USB otoscopy uses VisioForge's Android UVC source, not the built-in camera API. -->
 	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
-		<PackageReference Include="VisioForge.DotNet.VideoCapture" Version="2026.11.6" />
-		<PackageReference Include="VisioForge.DotNet.Core.UI.MAUI" Version="2026.11.6" />
+		<PackageReference Include="VisioForge.DotNet.VideoCapture" Version="2026.11.12" />
+		<PackageReference Include="VisioForge.DotNet.Core.UI.MAUI" Version="2026.11.12" />
 		<PackageReference Include="VisioForge.CrossPlatform.Core.Android" Version="2026.11.5" />
 		<!-- Match the Lifecycle 2.10 family required by VisioForge's MAUI preview. -->
 		<PackageReference Include="Xamarin.AndroidX.Lifecycle.LiveData" Version="2.10.0.2" />
