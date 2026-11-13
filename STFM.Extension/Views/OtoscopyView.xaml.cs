@@ -14,6 +14,9 @@ public partial class OtoscopyView : ContentView
 {
     private readonly IOtoscopyCamera camera;
     private readonly SemaphoreSlim operations = new(1, 1);
+    // USB paths can change after unplugging. Retain each model's choice for this
+    // view so a physically reconnected scope retries the mode the user selected.
+    private readonly Dictionary<string, string?> modePreferences = new(StringComparer.Ordinal);
     private CancellationTokenSource? sessionCancellation;
     private Page? ownerPage;
     private Window? ownerWindow;
@@ -26,7 +29,10 @@ public partial class OtoscopyView : ContentView
     private bool watching;
     private bool autoConnectAttempted;
     private bool updatingPicker;
+    private bool updatingModePicker;
     private string? selectedCameraId;
+    private string? selectedModeId;
+    private string? selectedPreferenceKey;
     private int sessionVersion;
     private int examinationVersion;
 
@@ -184,6 +190,7 @@ public partial class OtoscopyView : ContentView
         if (active)
         {
             camera.DevicesChanged += DevicesChanged;
+            camera.ModesChanged += CameraModesChanged;
             camera.Error += CameraError;
             try
             {
@@ -193,6 +200,7 @@ public partial class OtoscopyView : ContentView
             catch
             {
                 camera.DevicesChanged -= DevicesChanged;
+                camera.ModesChanged -= CameraModesChanged;
                 camera.Error -= CameraError;
                 active = false;
                 watching = false;
@@ -213,6 +221,7 @@ public partial class OtoscopyView : ContentView
                 if (watching)
                 {
                     camera.DevicesChanged -= DevicesChanged;
+                    camera.ModesChanged -= CameraModesChanged;
                     camera.Error -= CameraError;
                     watching = false;
                 }
@@ -250,8 +259,37 @@ public partial class OtoscopyView : ContentView
         RunSafely(async () =>
         {
             if (active && version == sessionVersion)
-                await DisconnectAsync($"Camera stopped: {e.Message} Tap Reconnect to try again.");
+                await DisconnectAsync(CameraFailureMessage(e.Message));
         });
+    }
+
+    private void CameraModesChanged(object? sender, EventArgs e) => RunSafely(() =>
+    {
+        if (active)
+            UpdateModePicker();
+        return Task.CompletedTask;
+    });
+
+    private void ModeSelectionChanged(object? sender, EventArgs e)
+    {
+        if (updatingModePicker || ModePicker.SelectedItem is not OtoscopyCameraMode mode)
+            return;
+        selectedModeId = string.IsNullOrEmpty(mode.Id) ? null : mode.Id;
+        if (selectedPreferenceKey is not null)
+            modePreferences[selectedPreferenceKey] = selectedModeId;
+        RunSafely(() => active ? ConnectAsync(forceReconnect: true) : Task.CompletedTask);
+    }
+
+    private string LivePreviewMessage(string name)
+        => $"Live preview — {name}" + (camera.RequestedModeDescription is { } mode ? $". Requested: {mode}." : "");
+
+    private string CameraFailureMessage(string message)
+    {
+        if (message.Contains("delivered no frames", StringComparison.OrdinalIgnoreCase))
+            return $"No video frames received ({camera.RequestedModeDescription ?? "automatic mode"}). " +
+                "Try another video mode. If it still fails, unplug/reconnect the otoscope, then tap Reconnect. " +
+                "Copy camera details below for troubleshooting.";
+        return $"Camera stopped: {message} Tap Reconnect to try again.";
     }
 
     private void ReconnectClicked(object? sender, EventArgs e) => RunSafely(async () =>
@@ -272,6 +310,10 @@ public partial class OtoscopyView : ContentView
     {
         if (updatingPicker || CameraPicker.SelectedItem is not OtoscopyCameraDevice device)
             return;
+        if (device.Id != selectedCameraId)
+        {
+            ModeControls.IsVisible = false;
+        }
         selectedCameraId = device.Id;
         RunSafely(() => active ? ConnectAsync(forceReconnect: true) : Task.CompletedTask);
     }
@@ -299,12 +341,19 @@ public partial class OtoscopyView : ContentView
             var cameras = camera.GetCameras();
             var selected = cameras.FirstOrDefault(item => item.Id == selectedCameraId) ?? cameras.FirstOrDefault();
             bool sameDevice = selected?.Id == selectedCameraId;
+            if (!sameDevice)
+            {
+                ModeControls.IsVisible = false;
+            }
+            selectedPreferenceKey = selected?.PreferenceKey;
+            selectedModeId = selectedPreferenceKey is not null &&
+                modePreferences.TryGetValue(selectedPreferenceKey, out var preferred) ? preferred : null;
             selectedCameraId = selected?.Id;
             UpdateCameraPicker(cameras, selected);
 
             if (!forceReconnect && sameDevice && camera.IsConnected)
             {
-                StatusLabel.Text = $"Live preview — {selected!.Name}";
+                StatusLabel.Text = LivePreviewMessage(selected!.Name);
                 return;
             }
 
@@ -313,13 +362,15 @@ public partial class OtoscopyView : ContentView
             if (selected == null)
             {
                 StatusLabel.Text = "No USB camera found. Connect a camera to begin.";
+                ModeControls.IsVisible = false;
                 return;
             }
 
             StatusLabel.Text = $"Connecting to {selected.Name}…";
-            await camera.ConnectAsync(selected, token);
+            CopyDetailsButton.IsVisible = true;
+            await camera.ConnectAsync(selected, selectedModeId, token);
             token.ThrowIfCancellationRequested();
-            StatusLabel.Text = $"Live preview — {selected.Name}";
+            StatusLabel.Text = LivePreviewMessage(selected.Name);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
@@ -329,7 +380,10 @@ public partial class OtoscopyView : ContentView
         {
             Debug.WriteLine(exception);
             if (version == sessionVersion && active)
-                StatusLabel.Text = $"{exception.Message} Tap Reconnect to try again.";
+            {
+                StatusLabel.Text = CameraFailureMessage(exception.Message);
+                UpdateModePicker();
+            }
             if (entered)
                 await camera.DisconnectAsync();
         }
@@ -390,6 +444,44 @@ public partial class OtoscopyView : ContentView
             updatingPicker = false;
         }
     }
+
+    private void UpdateModePicker()
+    {
+        updatingModePicker = true;
+        try
+        {
+            var choices = new List<OtoscopyCameraMode> { OtoscopyCameraMode.Automatic };
+            choices.AddRange(camera.Modes);
+            ModePicker.ItemsSource = choices;
+            if (camera.Modes.Count == 0)
+            {
+                // A failed USB open says nothing about the saved mode's validity.
+                // Keep it for the next physical reconnect instead of erasing it.
+                ModePicker.SelectedItem = OtoscopyCameraMode.Automatic;
+                ModeControls.IsVisible = false;
+                return;
+            }
+            var choice = choices.FirstOrDefault(mode => mode.Id == selectedModeId)
+                ?? OtoscopyCameraMode.Automatic;
+            selectedModeId = string.IsNullOrEmpty(choice.Id) ? null : choice.Id;
+            if (selectedPreferenceKey is not null)
+                modePreferences[selectedPreferenceKey] = selectedModeId;
+            ModePicker.SelectedItem = choice;
+            ModeControls.IsVisible = camera.Modes.Count > 0;
+        }
+        finally
+        {
+            updatingModePicker = false;
+        }
+    }
+
+    private void CopyDetailsClicked(object? sender, EventArgs e) => RunSafely(async () =>
+    {
+        // Device capabilities and SDK errors only; never include images or patient data.
+        await Clipboard.Default.SetTextAsync(camera.Diagnostics);
+        if (ownerPage is not null)
+            await ownerPage.DisplayAlertAsync("Camera details copied", "The camera modes and last SDK error are on the clipboard.", "OK");
+    });
 
     private void CaptureLeftClicked(object? sender, EventArgs e) => RunSafely(() => CaptureAsync(OtoscopyEar.Left));
     private void CaptureRightClicked(object? sender, EventArgs e) => RunSafely(() => CaptureAsync(OtoscopyEar.Right));
@@ -476,6 +568,8 @@ public partial class OtoscopyView : ContentView
         CaptureLeftButton.IsEnabled = canCapture;
         CaptureRightButton.IsEnabled = canCapture;
         CameraPicker.IsEnabled = active && !busy;
+        ModePicker.IsEnabled = active && !busy && camera.Modes.Count > 0;
+        CopyDetailsButton.IsEnabled = active && !busy;
         ClearButton.IsEnabled = !busy && (LeftImage != null || RightImage != null);
         BusyIndicator.IsVisible = busy;
         BusyIndicator.IsRunning = busy;

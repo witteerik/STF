@@ -25,6 +25,13 @@
                     SelectedIndexChanged="CameraSelectionChanged"
                     SemanticProperties.Description="Select the USB camera" />
 
+            <VerticalStackLayout x:Name="ModeControls" IsVisible="False" Spacing="0">
+                <Label Text="Video mode" FontSize="12" />
+                <Picker x:Name="ModePicker" Title="Video mode"
+                        SelectedIndexChanged="ModeSelectionChanged"
+                        SemanticProperties.Description="Select a resolution, frame rate and format offered by the camera" />
+            </VerticalStackLayout>
+
             <Border x:Name="PreviewFrame" HeightRequest="280" BackgroundColor="#101216"
                     Stroke="#383C45" StrokeThickness="1" StrokeShape="RoundRectangle 8">
                 <Grid x:Name="PreviewHost" />
@@ -69,6 +76,11 @@
                     BackgroundColor="Transparent" BorderColor="#858B96" BorderWidth="1"
                     TextColor="{AppThemeBinding Light=#242832, Dark=White}"
                     MinimumHeightRequest="44" Clicked="ClearClicked" />
+
+            <Button x:Name="CopyDetailsButton" Text="Copy camera details" IsVisible="False"
+                    BackgroundColor="Transparent"
+                    TextColor="{AppThemeBinding Light=#242832, Dark=White}"
+                    MinimumHeightRequest="44" Clicked="CopyDetailsClicked" />
         </VerticalStackLayout>
     </ScrollView>
 </ContentView>

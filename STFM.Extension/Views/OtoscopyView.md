@@ -43,6 +43,40 @@ The view selects the first USB camera automatically. If several are attached, a
 selector appears. It never switches to the tablet's built-in camera. Plugging a
 camera in while the view is open also starts connection automatically.
 
+**Video mode** lists the resolutions, frame rates and MJPEG/YUY2 formats reported
+by the connected camera. **Automatic** keeps the original selection preference:
+nearest pixel count to 1280 × 720, then MJPEG, then the advertised rate nearest
+30 fps. A manual choice stops and disposes the current capture before opening a
+new one with that mode's exact dimensions, format and frame rate. The choice is
+remembered by USB vendor/product ID for this view, including unplug/replug; it is
+not saved as an app setting. A different camera model starts with Automatic,
+while returning to a previously selected model restores its choice. Two cameras
+with the same vendor/product IDs share the choice.
+
+If an older camera connects but reports that it delivered no frames:
+
+1. Choose one of its advertised modes explicitly. For a scope reported as
+   720 × 720 on a PC, use that size only if it appears in the Android list.
+2. Try a lower **listed** frame rate at the same size, and the alternative format
+   (MJPEG or YUY2) if offered. The module never invents unsupported frame rates.
+3. If the device remains stalled, unplug/reconnect it and tap **Reconnect**.
+4. Use **Copy camera details** to obtain the USB vendor/product IDs, tablet and SDK
+   versions, requested mode, advertised modes and complete last SDK error. This
+   does not copy images or patient data. The same details are logged with the
+   Android logcat tag `Otoscopy`.
+
+The status shows the mode requested from the SDK, not a measurement of frames
+received. VisioForge may still negotiate another mode; its logcat line
+`USB camera ready: WxH@fps FORMAT` reports the negotiated mode. An empty mode list
+can mean the camera could not be opened (for example another app owns it), not
+only that it lacks supported formats. In that case Automatic retains the old
+1280 × 720 / 30 fps request and lets the SDK negotiate.
+
+This adds mode control and diagnostics, not a confirmed fix for every older
+otoscope. Working as a Windows webcam does not prove compatibility with Android's
+USB transport or the SDK's native bridge. No camera-specific identity or mode is
+assumed, and no SDK package upgrade is required for these changes.
+
 ## Get the results
 
 `LeftImage` and `RightImage` contain the latest `OtoscopyImage`, or `null` if that
@@ -119,12 +153,11 @@ there. NuGet supplies the compiled native runtime. In another host app, call
 AndroidX Lifecycle packages are aligned to 2.10.0.2 and SavedState.Ktx to 1.4.0.2 in
 the project file to match the preview control's dependencies.
 
-The initial request is **1280 × 720 at 30 fps**, with the SDK choosing a supported
-mode and preferring MJPEG. Snapshots encode the original camera frame as JPEG at
+The initial automatic preference is **1280 × 720 at 30 fps**, resolved against
+the advertised modes as described above. Snapshots encode the original camera frame as JPEG at
 quality 95, rather than photographing the on-screen preview. There is no audio or
-video recording. The requested resolution and JPEG quality are in
-`Otoscopy/AndroidUsbOtoscopyCamera.cs` if you need to change them after trying your
-camera. The USB camera and tablet still determine the modes actually available.
+video recording. JPEG quality is set in `Otoscopy/AndroidUsbOtoscopyCamera.cs`.
+The USB camera and tablet determine the modes available in the picker.
 
 The SDK runs in its trial mode without a certificate. For a later licensed build,
 use VisioForge's `SetLicenseCertificateAsync` on each newly created engine before

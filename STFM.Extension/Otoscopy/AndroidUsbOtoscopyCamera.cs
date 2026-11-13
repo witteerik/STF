@@ -3,6 +3,7 @@
 #if ANDROID
 using Android.Content;
 using Android.Hardware.Usb;
+using System.Globalization;
 using SkiaSharp;
 using VisioForge.Core;
 using VisioForge.Core.GStreamer.Android.UVC;
@@ -31,17 +32,26 @@ internal sealed class AndroidUsbOtoscopyCamera : IOtoscopyCamera
     private volatile bool isConnected;
     private int deviceGeneration;
     private string? lastError;
+    private string deviceDetails = "No USB camera has been opened yet.";
 
     public View Preview => preview;
     public bool IsPreviewReady => preview.GetVideoView() is not null;
     public bool IsConnected => isConnected;
+    public IReadOnlyList<OtoscopyCameraMode> Modes { get; private set; } = [];
+    public string? RequestedModeDescription { get; private set; }
+    public string Diagnostics => $"{deviceDetails}\nRequested mode: {RequestedModeDescription ?? "not started"}\n" +
+        $"Last SDK error: {lastError ?? "none"}\n" +
+        "Advertised modes usable by this SDK (MJPEG/YUY2):\n" +
+        (Modes.Count == 0 ? "No modes could be read." : string.Join("\n", Modes.Select(mode => mode.Name)));
     public event EventHandler? DevicesChanged;
+    public event EventHandler? ModesChanged;
     public event EventHandler<OtoscopyCameraErrorEventArgs>? Error;
 
     public IReadOnlyList<OtoscopyCameraDevice> GetCameras()
         => AndroidUVCDevices.FindCameras()
             .Select(device => new OtoscopyCameraDevice(device.DeviceName,
-                string.IsNullOrWhiteSpace(device.ProductName) ? "USB camera" : device.ProductName))
+                string.IsNullOrWhiteSpace(device.ProductName) ? "USB camera" : device.ProductName,
+                $"{device.VendorId:X4}:{device.ProductId:X4}"))
             .OrderBy(device => device.Id, StringComparer.Ordinal)
             .ToArray();
 
@@ -86,10 +96,14 @@ internal sealed class AndroidUsbOtoscopyCamera : IOtoscopyCamera
         }
     }
 
-    public async Task ConnectAsync(OtoscopyCameraDevice selected, CancellationToken cancellationToken)
+    public async Task ConnectAsync(OtoscopyCameraDevice selected, string? modeId, CancellationToken cancellationToken)
     {
         await DisconnectAsync();
         cancellationToken.ThrowIfCancellationRequested();
+        lastError = null;
+        RequestedModeDescription = null;
+        Modes = [];
+        deviceDetails = $"Camera: {selected.Name}";
         var nativeView = preview.GetVideoView()
             ?? throw new InvalidOperationException("The camera preview is not ready. Tap Reconnect to try again.");
 
@@ -103,6 +117,9 @@ internal sealed class AndroidUsbOtoscopyCamera : IOtoscopyCamera
 
         var device = AndroidUVCDevices.FindCameras().FirstOrDefault(camera => camera.DeviceName == selected.Id)
             ?? throw new InvalidOperationException("The USB camera was disconnected. Reconnect the cable to try again.");
+        deviceDetails = $"Camera: {selected.Name}\nUSB VID:PID: {device.VendorId:X4}:{device.ProductId:X4}\n" +
+            $"Android: {(global::Android.OS.Build.VERSION.Release)}; tablet: {(global::Android.OS.Build.Model)}\n" +
+            $"VisioForge managed SDK: {VideoCaptureCoreX.SDK_Version}";
 
         if (!await AndroidUVCDevices.RequestPermissionAsync(device, cancellationToken))
             throw new InvalidOperationException("USB camera access was not granted. Tap Reconnect to try again.");
@@ -110,20 +127,66 @@ internal sealed class AndroidUsbOtoscopyCamera : IOtoscopyCamera
 
         await EnsureSdkInitializedAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
+
+        // GetModes briefly opens the USB device. Only enumerate after disposing the
+        // previous engine, before starting the next one, and off the UI thread.
+        // Retain the SDK's exact VideoFrameRate (including fractional rates).
+        var advertised = await Task.Run(() => AndroidUVCDevices.GetModes(device), cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        var modesById = advertised
+            .GroupBy(ModeId, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        Modes = modesById.Select(pair => new OtoscopyCameraMode(pair.Key, pair.Value.ToString())).ToArray();
+        ModesChanged?.Invoke(this, EventArgs.Empty);
+
+        AndroidUVCCameraMode? requestedMode;
+        if (!string.IsNullOrEmpty(modeId))
+        {
+            if (modesById.Count == 0)
+                throw new InvalidOperationException("Could not read the camera modes. Unplug/reconnect the camera to retry the selected mode.");
+            if (!modesById.TryGetValue(modeId, out requestedMode))
+                throw new InvalidOperationException("That video mode is no longer available. Select another mode or reconnect with Automatic.");
+        }
+        else
+        {
+            // Preserve the original preference for the working camera: closest pixel
+            // count to 1280x720, then MJPEG, then the advertised rate nearest 30 fps.
+            requestedMode = advertised
+                .OrderBy(mode => Math.Abs((long)mode.Width * mode.Height - 1280L * 720))
+                .ThenBy(mode => mode.Format == AndroidUVCFrameFormat.MJPEG ? 0 : 1)
+                .ThenBy(mode => Math.Abs(mode.FrameRate.ToDouble(CultureInfo.InvariantCulture) - 30))
+                .FirstOrDefault();
+        }
+
+        var source = new AndroidUVCSourceSettings
+        {
+            Device = device,
+            Width = 1280,
+            Height = 720,
+            FrameRate = new VideoFrameRate(30)
+        };
+        if (requestedMode is not null)
+        {
+            source.Width = requestedMode.Width;
+            source.Height = requestedMode.Height;
+            source.FrameRate = requestedMode.FrameRate;
+            source.Format = requestedMode.Format;
+            RequestedModeDescription = requestedMode.ToString();
+        }
+        else
+        {
+            // An empty list may also mean a temporary device-open failure. Preserve
+            // the previous automatic attempt; diagnostics distinguish this case.
+            RequestedModeDescription = "Automatic: 1280x720 @ 30 (mode list unavailable)";
+        }
+        global::Android.Util.Log.Info("Otoscopy", Diagnostics);
+
         connectedDeviceId = selected.Id;
-        lastError = null;
         var generation = Volatile.Read(ref deviceGeneration);
 
         var newCore = new VideoCaptureCoreX(nativeView)
         {
-            Video_Source = new AndroidUVCSourceSettings
-            {
-                Device = device,
-                Width = 1280,
-                Height = 720,
-                FrameRate = new VideoFrameRate(30)
-                // SDK default prefers MJPEG and selects the nearest advertised mode.
-            },
+            Video_Source = source,
             Video_Play = true,
             Audio_Play = false,
             Audio_Record = false,
@@ -157,6 +220,10 @@ internal sealed class AndroidUsbOtoscopyCamera : IOtoscopyCamera
             throw;
         }
     }
+
+    private static string ModeId(AndroidUVCCameraMode mode)
+        => $"{mode.Format}:{mode.Width}:{mode.Height}:" +
+           mode.FrameRate.ToDouble(CultureInfo.InvariantCulture).ToString("R", CultureInfo.InvariantCulture);
 
     public async Task<byte[]> CaptureJpegAsync(CancellationToken cancellationToken)
     {
@@ -227,6 +294,7 @@ internal sealed class AndroidUsbOtoscopyCamera : IOtoscopyCamera
         if (!ReferenceEquals(sender, core))
             return;
         lastError = args.Message;
+        global::Android.Util.Log.Warn("Otoscopy", Diagnostics);
         isConnected = false;
         Interlocked.Increment(ref deviceGeneration);
         Error?.Invoke(this, new OtoscopyCameraErrorEventArgs(args.Message));
