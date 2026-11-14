@@ -1,22 +1,20 @@
 // Copyright (c) 2026 Erik Witte. See License.txt in the repository root.
 
 using System.Diagnostics;
+using CommunityToolkit.Maui.Storage;
 using STFM.Extension.Otoscopy;
 
 namespace STFM.Extension.Views;
 
 /// <summary>
-/// Previews an Android USB camera and retains one JPEG per ear. Captures are not saved
-/// automatically: the host can use LeftImage, RightImage or ImageCaptured to save them.
+/// Previews an Android USB camera and retains one JPEG per ear. Save / export writes
+/// an examination ZIP to a user-selected destination; captures are not saved automatically.
 /// Call ClearImages before reusing this instance for another examination.
 /// </summary>
 public partial class OtoscopyView : ContentView
 {
     private readonly IOtoscopyCamera camera;
     private readonly SemaphoreSlim operations = new(1, 1);
-    // USB paths can change after unplugging. Retain each model's choice for this
-    // view so a physically reconnected scope retries the mode the user selected.
-    private readonly Dictionary<string, string?> modePreferences = new(StringComparer.Ordinal);
     private CancellationTokenSource? sessionCancellation;
     private Page? ownerPage;
     private Window? ownerWindow;
@@ -29,12 +27,13 @@ public partial class OtoscopyView : ContentView
     private bool watching;
     private bool autoConnectAttempted;
     private bool updatingPicker;
-    private bool updatingModePicker;
+    private bool resultActionInProgress;
+    private bool closed;
     private string? selectedCameraId;
-    private string? selectedModeId;
-    private string? selectedPreferenceKey;
     private int sessionVersion;
     private int examinationVersion;
+    private int resultVersion;
+    private int exportedVersion = -1;
 
     public OtoscopyView()
     {
@@ -58,10 +57,19 @@ public partial class OtoscopyView : ContentView
     /// <summary>Raised on the UI thread after a successful capture replaces the selected ear's image.</summary>
     public event EventHandler<OtoscopyImageCapturedEventArgs>? ImageCaptured;
 
+    /// <summary>Raised on the UI thread after CloseAsync stops the camera and permits closing.</summary>
+    public event EventHandler? Closed;
+
+    private bool HasImages => LeftImage is not null || RightImage is not null;
+    private bool HasUnexportedImages => HasImages && resultVersion != exportedVersion;
+
     /// <summary>Clears both results and invalidates any capture already in progress. Call on the UI thread.</summary>
     public void ClearImages()
     {
         examinationVersion++;
+        resultVersion++;
+        ReferenceEntry.Text = string.Empty;
+        ResultStatusLabel.Text = "No images saved for this examination.";
         LeftImage = null;
         RightImage = null;
         LeftPreview.Source = null;
@@ -81,14 +89,18 @@ public partial class OtoscopyView : ContentView
     /// </summary>
     public async Task StopCameraAsync()
     {
+        bool wasActive = active;
         manuallyStopped = true;
         await UpdateActivityAsync();
+        if (!wasActive)
+            await DisconnectAsync("Camera paused. Tap Reconnect to resume.");
     }
 
     private void ViewLoaded(object? sender, EventArgs e) => RunSafely(async () =>
     {
+        if (closed)
+            return;
         loaded = true;
-        manuallyStopped = false;
         pageVisible = true;
         windowActive = true;
         AttachLifecycle();
@@ -176,13 +188,12 @@ public partial class OtoscopyView : ContentView
     private async Task UpdateActivityAsync()
     {
 #if ANDROID
-        bool shouldBeActive = loaded && pageVisible && windowActive && !manuallyStopped;
+        bool shouldBeActive = loaded && pageVisible && windowActive && !manuallyStopped && !closed;
         if (shouldBeActive == active)
         {
             if (active)
                 await TryAutoConnectAsync();
-            else
-                await DisconnectAsync("Camera paused.");
+            UpdateButtons();
             return;
         }
 
@@ -190,7 +201,6 @@ public partial class OtoscopyView : ContentView
         if (active)
         {
             camera.DevicesChanged += DevicesChanged;
-            camera.ModesChanged += CameraModesChanged;
             camera.Error += CameraError;
             try
             {
@@ -200,7 +210,6 @@ public partial class OtoscopyView : ContentView
             catch
             {
                 camera.DevicesChanged -= DevicesChanged;
-                camera.ModesChanged -= CameraModesChanged;
                 camera.Error -= CameraError;
                 active = false;
                 watching = false;
@@ -221,11 +230,10 @@ public partial class OtoscopyView : ContentView
                 if (watching)
                 {
                     camera.DevicesChanged -= DevicesChanged;
-                    camera.ModesChanged -= CameraModesChanged;
                     camera.Error -= CameraError;
                     watching = false;
                 }
-                await DisconnectAsync("Camera paused.");
+                await DisconnectAsync("Camera paused. Tap Reconnect to resume.");
             }
         }
 #endif
@@ -263,37 +271,21 @@ public partial class OtoscopyView : ContentView
         });
     }
 
-    private void CameraModesChanged(object? sender, EventArgs e) => RunSafely(() =>
-    {
-        if (active)
-            UpdateModePicker();
-        return Task.CompletedTask;
-    });
+    private static string LivePreviewMessage(string name)
+        => $"Live preview — {name}. Video format selected automatically.";
 
-    private void ModeSelectionChanged(object? sender, EventArgs e)
-    {
-        if (updatingModePicker || ModePicker.SelectedItem is not OtoscopyCameraMode mode)
-            return;
-        selectedModeId = string.IsNullOrEmpty(mode.Id) ? null : mode.Id;
-        if (selectedPreferenceKey is not null)
-            modePreferences[selectedPreferenceKey] = selectedModeId;
-        RunSafely(() => active ? ConnectAsync(forceReconnect: true) : Task.CompletedTask);
-    }
-
-    private string LivePreviewMessage(string name)
-        => $"Live preview — {name}" + (camera.RequestedModeDescription is { } mode ? $". Requested: {mode}." : "");
-
-    private string CameraFailureMessage(string message)
+    private static string CameraFailureMessage(string message)
     {
         if (message.Contains("delivered no frames", StringComparison.OrdinalIgnoreCase))
-            return $"No video frames received ({camera.RequestedModeDescription ?? "automatic mode"}). " +
-                "Try another video mode. If it still fails, unplug/reconnect the otoscope, then tap Reconnect. " +
+            return "No video frames received in automatic mode. Unplug/reconnect the otoscope, then tap Reconnect. " +
                 "Copy camera details below for troubleshooting.";
         return $"Camera stopped: {message} Tap Reconnect to try again.";
     }
 
     private void ReconnectClicked(object? sender, EventArgs e) => RunSafely(async () =>
     {
+        if (closed || resultActionInProgress)
+            return;
         manuallyStopped = false;
         if (!active)
         {
@@ -308,18 +300,16 @@ public partial class OtoscopyView : ContentView
 
     private void CameraSelectionChanged(object? sender, EventArgs e)
     {
-        if (updatingPicker || CameraPicker.SelectedItem is not OtoscopyCameraDevice device)
+        if (closed || resultActionInProgress || updatingPicker || CameraPicker.SelectedItem is not OtoscopyCameraDevice device)
             return;
-        if (device.Id != selectedCameraId)
-        {
-            ModeControls.IsVisible = false;
-        }
         selectedCameraId = device.Id;
         RunSafely(() => active ? ConnectAsync(forceReconnect: true) : Task.CompletedTask);
     }
 
     private async Task ConnectAsync(bool forceReconnect = false)
     {
+        if (closed || resultActionInProgress || !active)
+            return;
         var previousCancellation = sessionCancellation;
         sessionCancellation = new CancellationTokenSource();
         var cancellation = sessionCancellation;
@@ -341,13 +331,6 @@ public partial class OtoscopyView : ContentView
             var cameras = camera.GetCameras();
             var selected = cameras.FirstOrDefault(item => item.Id == selectedCameraId) ?? cameras.FirstOrDefault();
             bool sameDevice = selected?.Id == selectedCameraId;
-            if (!sameDevice)
-            {
-                ModeControls.IsVisible = false;
-            }
-            selectedPreferenceKey = selected?.PreferenceKey;
-            selectedModeId = selectedPreferenceKey is not null &&
-                modePreferences.TryGetValue(selectedPreferenceKey, out var preferred) ? preferred : null;
             selectedCameraId = selected?.Id;
             UpdateCameraPicker(cameras, selected);
 
@@ -362,13 +345,12 @@ public partial class OtoscopyView : ContentView
             if (selected == null)
             {
                 StatusLabel.Text = "No USB camera found. Connect a camera to begin.";
-                ModeControls.IsVisible = false;
                 return;
             }
 
             StatusLabel.Text = $"Connecting to {selected.Name}…";
             CopyDetailsButton.IsVisible = true;
-            await camera.ConnectAsync(selected, selectedModeId, token);
+            await camera.ConnectAsync(selected, token);
             token.ThrowIfCancellationRequested();
             StatusLabel.Text = LivePreviewMessage(selected.Name);
         }
@@ -382,7 +364,6 @@ public partial class OtoscopyView : ContentView
             if (version == sessionVersion && active)
             {
                 StatusLabel.Text = CameraFailureMessage(exception.Message);
-                UpdateModePicker();
             }
             if (entered)
                 await camera.DisconnectAsync();
@@ -445,42 +426,12 @@ public partial class OtoscopyView : ContentView
         }
     }
 
-    private void UpdateModePicker()
-    {
-        updatingModePicker = true;
-        try
-        {
-            var choices = new List<OtoscopyCameraMode> { OtoscopyCameraMode.Automatic };
-            choices.AddRange(camera.Modes);
-            ModePicker.ItemsSource = choices;
-            if (camera.Modes.Count == 0)
-            {
-                // A failed USB open says nothing about the saved mode's validity.
-                // Keep it for the next physical reconnect instead of erasing it.
-                ModePicker.SelectedItem = OtoscopyCameraMode.Automatic;
-                ModeControls.IsVisible = false;
-                return;
-            }
-            var choice = choices.FirstOrDefault(mode => mode.Id == selectedModeId)
-                ?? OtoscopyCameraMode.Automatic;
-            selectedModeId = string.IsNullOrEmpty(choice.Id) ? null : choice.Id;
-            if (selectedPreferenceKey is not null)
-                modePreferences[selectedPreferenceKey] = selectedModeId;
-            ModePicker.SelectedItem = choice;
-            ModeControls.IsVisible = camera.Modes.Count > 0;
-        }
-        finally
-        {
-            updatingModePicker = false;
-        }
-    }
-
     private void CopyDetailsClicked(object? sender, EventArgs e) => RunSafely(async () =>
     {
-        // Device capabilities and SDK errors only; never include images or patient data.
+        // Device identity and SDK errors only; never include images or the reference.
         await Clipboard.Default.SetTextAsync(camera.Diagnostics);
         if (ownerPage is not null)
-            await ownerPage.DisplayAlertAsync("Camera details copied", "The camera modes and last SDK error are on the clipboard.", "OK");
+            await ownerPage.DisplayAlertAsync("Camera details copied", "The USB camera details and last SDK error are on the clipboard.", "OK");
     });
 
     private void CaptureLeftClicked(object? sender, EventArgs e) => RunSafely(() => CaptureAsync(OtoscopyEar.Left));
@@ -488,7 +439,7 @@ public partial class OtoscopyView : ContentView
 
     private async Task CaptureAsync(OtoscopyEar ear)
     {
-        if (!active || busy || !camera.IsConnected || sessionCancellation == null)
+        if (closed || resultActionInProgress || !active || busy || !camera.IsConnected || sessionCancellation == null)
             return;
 
         var token = sessionCancellation.Token;
@@ -526,7 +477,11 @@ public partial class OtoscopyView : ContentView
                 OnPropertyChanged(nameof(RightImage));
             }
             if (examination == examinationVersion)
+            {
+                resultVersion++;
+                ResultStatusLabel.Text = "Images have unsaved changes.";
                 StatusLabel.Text = $"{ear} ear image captured. Preview remains live.";
+            }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
@@ -557,24 +512,200 @@ public partial class OtoscopyView : ContentView
 
     private void ClearClicked(object? sender, EventArgs e) => RunSafely(async () =>
     {
-        if (ownerPage != null && await ownerPage.DisplayAlertAsync(
-                "Clear otoscopy images?", "Both images will be removed from this view.", "Clear", "Cancel"))
-            ClearImages();
+        if (closed || resultActionInProgress || busy)
+            return;
+        resultActionInProgress = true;
+        UpdateButtons();
+        try
+        {
+            if (ownerPage != null && await ownerPage.DisplayAlertAsync(
+                    "Clear otoscopy images?", "Both images and the reference will be removed from this view. Saved files are kept.",
+                    "Clear", "Cancel"))
+                ClearImages();
+        }
+        finally
+        {
+            resultActionInProgress = false;
+            UpdateButtons();
+        }
     });
+
+    private void ReferenceChanged(object? sender, TextChangedEventArgs e)
+    {
+        resultVersion++;
+        if (HasImages)
+            ResultStatusLabel.Text = "Images have unsaved changes.";
+    }
+
+    private void SaveExportClicked(object? sender, EventArgs e) => RunSafely(async () =>
+    {
+        if (closed || resultActionInProgress || busy || !HasImages)
+            return;
+        resultActionInProgress = true;
+        UpdateButtons();
+        try
+        {
+            await PauseForResultsAsync();
+            await ExportImagesAsync();
+        }
+        finally
+        {
+            resultActionInProgress = false;
+            UpdateButtons();
+        }
+    });
+
+    // Export must remain available even after a native camera shutdown fails.
+    // It only reads already captured JPEGs; it does not touch the USB camera.
+    private async Task PauseForResultsAsync()
+    {
+        try
+        {
+            await StopCameraAsync();
+        }
+        catch (Exception exception)
+        {
+            Debug.WriteLine(exception);
+            StatusLabel.Text = $"Camera could not stop cleanly: {exception.Message} Captured images can still be saved.";
+        }
+    }
+
+    private async Task<bool> ExportImagesAsync()
+    {
+        if (!HasImages)
+            return false;
+
+        var left = LeftImage;
+        var right = RightImage;
+        var reference = ReferenceEntry.Text;
+        var version = resultVersion;
+        ResultStatusLabel.Text = "Preparing images for export…";
+        try
+        {
+            // The camera lock is never held while the Android file picker is open.
+            // Lifecycle notifications can therefore finish without deadlocking it.
+            using var archive = new MemoryStream();
+            var export = await Task.Run(() => OtoscopyExport.CreateArchiveAsync(archive, left, right, reference));
+            archive.Position = 0;
+            var result = await FileSaver.Default.SaveAsync(export.SuggestedFileName, archive, CancellationToken.None);
+            if (result.IsSuccessful)
+            {
+                if (version == resultVersion)
+                    exportedVersion = version;
+                ResultStatusLabel.Text = version == resultVersion
+                    ? $"Images saved: {export.SuggestedFileName}"
+                    : "The selected images were saved. Newer changes still need saving.";
+                return version == resultVersion;
+            }
+            if (result.IsCancelled)
+            {
+                ResultStatusLabel.Text = "Save cancelled. Your images are still here.";
+                return false;
+            }
+            throw result.Exception ?? new IOException("The destination did not confirm the save.");
+        }
+        catch (Exception exception)
+        {
+            Debug.WriteLine(exception);
+            // Some document providers can fail after writing. Never infer success
+            // from a path, delete the captures, or mark them saved on an error.
+            ResultStatusLabel.Text = $"Save could not be confirmed: {exception.Message} " +
+                "Your images are still here. Check the destination before retrying.";
+            return false;
+        }
+    }
+
+    private void CloseClicked(object? sender, EventArgs e) => RunSafely(async () => { await CloseAsync(); });
+
+    /// <summary>
+    /// Stops capture, offers to export unsaved images, then raises Closed. Returns false
+    /// if cancelled or saving fails. Call on the UI thread; the host removes this view
+    /// only after Closed. A cancelled close leaves the camera paused until Reconnect.
+    /// </summary>
+    public async Task<bool> CloseAsync()
+    {
+        if (closed)
+            return true;
+        if (resultActionInProgress)
+            return false;
+        resultActionInProgress = true;
+        UpdateButtons();
+        try
+        {
+            // Cancel/join any capture before asking about its results. Otherwise a
+            // late frame could arrive after the user decides what to save/discard.
+            await PauseForResultsAsync();
+            if (HasUnexportedImages)
+            {
+                if (ownerPage is null)
+                {
+                    ResultStatusLabel.Text = "Images have not been saved. Open the view to save or discard them before closing.";
+                    return false;
+                }
+                var choice = await ownerPage.DisplayActionSheetAsync(
+                    "Save images before closing?", "Cancel", "Discard images", "Save / export images");
+                if (choice == "Save / export images")
+                {
+                    if (!await ExportImagesAsync())
+                        return false;
+                }
+                else if (choice != "Discard images")
+                    return false;
+            }
+
+            try
+            {
+                await camera.DisposeAsync();
+            }
+            catch (Exception exception)
+            {
+                Debug.WriteLine(exception);
+                StatusLabel.Text = $"The camera has not shut down cleanly: {exception.Message}";
+                if (ownerPage is not null)
+                    await ownerPage.DisplayAlertAsync("Camera is still unavailable",
+                        "The view will stay open because the camera has not confirmed shutdown. " +
+                        "Your captured images are still here and can be exported. " +
+                        "Try Close again once shutdown finishes, or save your images and restart the app.", "OK");
+                // A barrier against reopening is not proof that the renderer has
+                // released this surface. Keep the preview attached on failed or
+                // pending cleanup rather than disposing it underneath native code.
+                return false;
+            }
+            closed = true;
+            loaded = false;
+            DetachLifecycle();
+            Loaded -= ViewLoaded;
+            Unloaded -= ViewUnloaded;
+            camera.Preview.Loaded -= PreviewReady;
+            camera.Preview.HandlerChanged -= PreviewReady;
+            IsVisible = false;
+            Closed?.Invoke(this, EventArgs.Empty);
+            return true;
+        }
+        finally
+        {
+            resultActionInProgress = false;
+            UpdateButtons();
+        }
+    }
 
     private void UpdateButtons()
     {
-        bool canCapture = active && camera.IsConnected && !busy;
+        bool available = !closed && !resultActionInProgress && !busy;
+        bool canCapture = available && active && camera.IsConnected;
         CaptureLeftButton.IsEnabled = canCapture;
         CaptureRightButton.IsEnabled = canCapture;
-        CameraPicker.IsEnabled = active && !busy;
-        ModePicker.IsEnabled = active && !busy && camera.Modes.Count > 0;
-        CopyDetailsButton.IsEnabled = active && !busy;
-        ClearButton.IsEnabled = !busy && (LeftImage != null || RightImage != null);
-        BusyIndicator.IsVisible = busy;
-        BusyIndicator.IsRunning = busy;
+        CameraPicker.IsEnabled = available && active;
+        CopyDetailsButton.IsEnabled = available;
+        ClearButton.IsEnabled = available && HasImages;
+        SaveExportButton.IsEnabled = available && HasImages;
+        ReferenceEntry.IsEnabled = available;
+        // Allow Close to cancel a connection or capture already in progress.
+        CloseButton.IsEnabled = !closed && !resultActionInProgress;
+        BusyIndicator.IsVisible = busy || resultActionInProgress;
+        BusyIndicator.IsRunning = busy || resultActionInProgress;
 #if ANDROID
-        ReconnectButton.IsEnabled = loaded && pageVisible && windowActive && !busy;
+        ReconnectButton.IsEnabled = available && loaded && pageVisible && windowActive;
 #endif
     }
 

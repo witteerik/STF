@@ -261,11 +261,21 @@ public partial class WelcomePageR : ContentView
 
     private void StartOtoscopy_Button_Clicked(object sender, EventArgs e)
     {
-        Content = new OtoscopyView
+        var welcomeContent = Content;
+        var otoscopy = new OtoscopyView
         {
             VerticalOptions = LayoutOptions.Fill,
             HorizontalOptions = LayoutOptions.Fill
         };
+        otoscopy.Closed += OtoscopyClosed;
+        Content = otoscopy;
+
+        void OtoscopyClosed(object? sender, EventArgs args)
+        {
+            otoscopy.Closed -= OtoscopyClosed;
+            if (ReferenceEquals(Content, otoscopy))
+                Content = welcomeContent;
+        }
     }
 
 

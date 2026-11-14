@@ -3,7 +3,6 @@
 #if ANDROID
 using Android.Content;
 using Android.Hardware.Usb;
-using System.Globalization;
 using SkiaSharp;
 using VisioForge.Core;
 using VisioForge.Core.GStreamer.Android.UVC;
@@ -19,6 +18,11 @@ namespace STFM.Extension.Otoscopy;
 internal sealed class AndroidUsbOtoscopyCamera : IOtoscopyCamera
 {
     private static readonly SemaphoreSlim SdkInitializationLock = new(1, 1);
+    private static readonly object ProcessShutdownLock = new();
+    private static readonly TimeSpan ShutdownWaitTimeout = TimeSpan.FromSeconds(15);
+    // Closing a view may stop waiting while native shutdown continues. A new view
+    // must join that shutdown too, and must never bypass a failed native cleanup.
+    private static Task processShutdownTask = Task.CompletedTask;
     private readonly VideoView preview = new()
     {
         HorizontalOptions = LayoutOptions.Fill,
@@ -41,21 +45,16 @@ internal sealed class AndroidUsbOtoscopyCamera : IOtoscopyCamera
     public View Preview => preview;
     public bool IsPreviewReady => preview.GetVideoView() is not null;
     public bool IsConnected => isConnected;
-    public IReadOnlyList<OtoscopyCameraMode> Modes { get; private set; } = [];
-    public string? RequestedModeDescription { get; private set; }
-    public string Diagnostics => $"{deviceDetails}\nRequested mode: {RequestedModeDescription ?? "not started"}\n" +
-        $"Last SDK error: {lastError ?? "none"}\n" +
-        "Advertised modes usable by this SDK (MJPEG/YUY2):\n" +
-        (Modes.Count == 0 ? "No modes could be read." : string.Join("\n", Modes.Select(mode => mode.Name)));
+    public string Diagnostics => $"{deviceDetails}\n" +
+        "Requested mode: Automatic (1280x720 @ 30 fps preference; SDK selects an advertised mode).\n" +
+        $"Last camera/SDK error: {lastError ?? "none"}";
     public event EventHandler? DevicesChanged;
-    public event EventHandler? ModesChanged;
     public event EventHandler<OtoscopyCameraErrorEventArgs>? Error;
 
     public IReadOnlyList<OtoscopyCameraDevice> GetCameras()
         => AndroidUVCDevices.FindCameras()
             .Select(device => new OtoscopyCameraDevice(device.DeviceName,
-                string.IsNullOrWhiteSpace(device.ProductName) ? "USB camera" : device.ProductName,
-                $"{device.VendorId:X4}:{device.ProductId:X4}"))
+                string.IsNullOrWhiteSpace(device.ProductName) ? "USB camera" : device.ProductName))
             .OrderBy(device => device.Id, StringComparer.Ordinal)
             .ToArray();
 
@@ -100,13 +99,12 @@ internal sealed class AndroidUsbOtoscopyCamera : IOtoscopyCamera
         }
     }
 
-    public async Task ConnectAsync(OtoscopyCameraDevice selected, string? modeId, CancellationToken cancellationToken)
+    public async Task ConnectAsync(OtoscopyCameraDevice selected, CancellationToken cancellationToken)
     {
         await DisconnectAsync();
+        await WaitForProcessShutdownAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         lastError = null;
-        RequestedModeDescription = null;
-        Modes = [];
         deviceDetails = $"Camera: {selected.Name}";
         var nativeView = preview.GetVideoView()
             ?? throw new InvalidOperationException("The camera preview is not ready. Tap Reconnect to try again.");
@@ -130,59 +128,21 @@ internal sealed class AndroidUsbOtoscopyCamera : IOtoscopyCamera
         cancellationToken.ThrowIfCancellationRequested();
 
         await EnsureSdkInitializedAsync(cancellationToken);
+        // Permission dialogs can yield while another view closes. Recheck the
+        // process barrier immediately before creating/starting a capture engine.
+        await WaitForProcessShutdownAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
-        // GetModes briefly opens the USB device. Only enumerate after disposing the
-        // previous engine, before starting the next one, and off the UI thread.
-        // Retain the SDK's exact VideoFrameRate (including fractional rates).
-        var advertised = await Task.Run(() => AndroidUVCDevices.GetModes(device), cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-        var modesById = advertised
-            .GroupBy(ModeId, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
-        Modes = modesById.Select(pair => new OtoscopyCameraMode(pair.Key, pair.Value.ToString())).ToArray();
-        ModesChanged?.Invoke(this, EventArgs.Empty);
-
-        AndroidUVCCameraMode? requestedMode;
-        if (!string.IsNullOrEmpty(modeId))
-        {
-            if (modesById.Count == 0)
-                throw new InvalidOperationException("Could not read the camera modes. Unplug/reconnect the camera to retry the selected mode.");
-            if (!modesById.TryGetValue(modeId, out requestedMode))
-                throw new InvalidOperationException("That video mode is no longer available. Select another mode or reconnect with Automatic.");
-        }
-        else
-        {
-            // Preserve the original preference for the working camera: closest pixel
-            // count to 1280x720, then MJPEG, then the advertised rate nearest 30 fps.
-            requestedMode = advertised
-                .OrderBy(mode => Math.Abs((long)mode.Width * mode.Height - 1280L * 720))
-                .ThenBy(mode => mode.Format == AndroidUVCFrameFormat.MJPEG ? 0 : 1)
-                .ThenBy(mode => Math.Abs(mode.FrameRate.ToDouble(CultureInfo.InvariantCulture) - 30))
-                .FirstOrDefault();
-        }
-
+        // Restore the original automatic request. GetModes is deliberately not
+        // called: it would add a separate native USB open/close before streaming.
         var source = new AndroidUVCSourceSettings
         {
             Device = device,
             Width = 1280,
             Height = 720,
-            FrameRate = new VideoFrameRate(30)
+            FrameRate = new VideoFrameRate(30),
+            Format = AndroidUVCFrameFormat.Unknown
         };
-        if (requestedMode is not null)
-        {
-            source.Width = requestedMode.Width;
-            source.Height = requestedMode.Height;
-            source.FrameRate = requestedMode.FrameRate;
-            source.Format = requestedMode.Format;
-            RequestedModeDescription = requestedMode.ToString();
-        }
-        else
-        {
-            // An empty list may also mean a temporary device-open failure. Preserve
-            // the previous automatic attempt; diagnostics distinguish this case.
-            RequestedModeDescription = "Automatic: 1280x720 @ 30 (mode list unavailable)";
-        }
         global::Android.Util.Log.Info("Otoscopy", Diagnostics);
 
         connectedDeviceId = selected.Id;
@@ -225,10 +185,6 @@ internal sealed class AndroidUsbOtoscopyCamera : IOtoscopyCamera
         }
     }
 
-    private static string ModeId(AndroidUVCCameraMode mode)
-        => $"{mode.Format}:{mode.Width}:{mode.Height}:" +
-           mode.FrameRate.ToDouble(CultureInfo.InvariantCulture).ToString("R", CultureInfo.InvariantCulture);
-
     public async Task<byte[]> CaptureJpegAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -266,7 +222,7 @@ internal sealed class AndroidUsbOtoscopyCamera : IOtoscopyCamera
             core = null;
             oldCore.OnError -= CoreOnError;
             shutdownWaitTimedOut = false;
-            shutdownTask = StopAndDisposeCoreAsync(oldCore);
+            shutdownTask = RegisterShutdown(oldCore);
         }
 
         // The view serializes start/capture/stop. Repeated cleanup calls must still
@@ -276,7 +232,7 @@ internal sealed class AndroidUsbOtoscopyCamera : IOtoscopyCamera
 
         try
         {
-            await shutdownTask.WaitAsync(TimeSpan.FromSeconds(15));
+            await shutdownTask.WaitAsync(ShutdownWaitTimeout);
         }
         catch (TimeoutException) when (!shutdownTask.IsFaulted)
         {
@@ -290,6 +246,77 @@ internal sealed class AndroidUsbOtoscopyCamera : IOtoscopyCamera
             // Leave the failed task in place: another connection must not bypass
             // an engine whose USB resources may not have been released safely.
             throw new InvalidOperationException(lastError, ex);
+        }
+    }
+
+    private static Task RegisterShutdown(VideoCaptureCoreX oldCore)
+    {
+        var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (ProcessShutdownLock)
+        {
+            // Publish before invoking SDK code, which may complete synchronously
+            // or raise callbacks. Never replace a pending/faulted barrier with a
+            // later successful shutdown from another view.
+            processShutdownTask = processShutdownTask.IsCompletedSuccessfully
+                ? completion.Task
+                : Task.WhenAll(processShutdownTask, completion.Task);
+        }
+
+        _ = CompleteShutdownAsync(oldCore, completion);
+        return completion.Task;
+    }
+
+    private static async Task CompleteShutdownAsync(VideoCaptureCoreX oldCore, TaskCompletionSource<bool> completion)
+    {
+        try
+        {
+            await StopAndDisposeCoreAsync(oldCore).ConfigureAwait(false);
+            completion.TrySetResult(true);
+        }
+        catch (Exception ex)
+        {
+            completion.TrySetException(ex);
+        }
+    }
+
+    private async Task WaitForProcessShutdownAsync(CancellationToken cancellationToken)
+    {
+        var elapsed = System.Diagnostics.Stopwatch.StartNew();
+        while (true)
+        {
+            Task previousShutdown;
+            lock (ProcessShutdownLock)
+                previousShutdown = processShutdownTask;
+
+            try
+            {
+                var remaining = ShutdownWaitTimeout - elapsed.Elapsed;
+                if (remaining <= TimeSpan.Zero)
+                    throw new TimeoutException();
+                // Cancelling the caller's wait does not cancel native shutdown.
+                await previousShutdown.WaitAsync(remaining, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (TimeoutException) when (!previousShutdown.IsFaulted)
+            {
+                lastError = "An earlier camera shutdown is still running. No new stream was opened. Close and restart the app before continuing.";
+                throw new InvalidOperationException(lastError);
+            }
+            catch (Exception ex)
+            {
+                lastError = "An earlier camera shutdown failed. No new stream was opened. Close and restart the app before continuing.";
+                throw new InvalidOperationException(lastError, ex);
+            }
+
+            lock (ProcessShutdownLock)
+            {
+                if (ReferenceEquals(previousShutdown, processShutdownTask))
+                    return;
+            }
+            // Another view registered a shutdown while this wait was pending.
         }
     }
 

@@ -5,12 +5,15 @@
              BackgroundColor="{AppThemeBinding Light=#F7F8FA, Dark=#17191D}">
     <ScrollView>
         <VerticalStackLayout Padding="16" Spacing="12">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                 <Label Text="Otoscopy" FontSize="24" FontAttributes="Bold"
                        VerticalOptions="Center" />
                 <Button x:Name="ReconnectButton" Grid.Column="1" Text="Reconnect"
                         Clicked="ReconnectClicked" MinimumHeightRequest="44"
                         SemanticProperties.Description="Reconnect to the USB camera" />
+                <Button x:Name="CloseButton" Grid.Column="2" Text="Close"
+                        Clicked="CloseClicked" MinimumHeightRequest="44"
+                        SemanticProperties.Description="Close otoscopy and return to the previous view" />
             </Grid>
 
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
@@ -24,13 +27,6 @@
             <Picker x:Name="CameraPicker" Title="USB camera" IsVisible="False"
                     SelectedIndexChanged="CameraSelectionChanged"
                     SemanticProperties.Description="Select the USB camera" />
-
-            <VerticalStackLayout x:Name="ModeControls" IsVisible="False" Spacing="0">
-                <Label Text="Video mode" FontSize="12" />
-                <Picker x:Name="ModePicker" Title="Video mode"
-                        SelectedIndexChanged="ModeSelectionChanged"
-                        SemanticProperties.Description="Select a resolution, frame rate and format offered by the camera" />
-            </VerticalStackLayout>
 
             <Border x:Name="PreviewFrame" HeightRequest="280" BackgroundColor="#101216"
                     Stroke="#383C45" StrokeThickness="1" StrokeShape="RoundRectangle 8">
@@ -71,6 +67,15 @@
                     </VerticalStackLayout>
                 </Border>
             </Grid>
+
+            <Entry x:Name="ReferenceEntry" Placeholder="Examination reference (optional)"
+                   MaxLength="120" TextChanged="ReferenceChanged"
+                   SemanticProperties.Description="Optional reference included with the saved images" />
+
+            <Button x:Name="SaveExportButton" Text="Save / export images" IsEnabled="False"
+                    MinimumHeightRequest="48" Clicked="SaveExportClicked" />
+            <Label x:Name="ResultStatusLabel" Text="Images are kept here until you save or clear them."
+                   FontSize="13" />
 
             <Button x:Name="ClearButton" Text="Clear both images" IsEnabled="False"
                     BackgroundColor="Transparent" BorderColor="#858B96" BorderWidth="1"
