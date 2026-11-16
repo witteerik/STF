@@ -439,19 +439,16 @@ namespace STFM
         async static Task PickMediaFolder()
         {
             await Messager.MsgBoxAsync("The location of the media folder (MediaRootDirectory) has not yet been set. Please click OK and indicate where the OSTFMedia folder is located on your device using the dialog that appears.", Messager.MsgBoxStyle.Information, "Set media folder");
-            var result = await FolderPicker.PickAsync(CancellationToken.None);
-            //var result = await FolderPicker.Default.PickAsync(CancellationToken.None);
+            var result = await Storage.StfFolderPicker.PickAsync(CancellationToken.None);
             if (result.IsSuccessful)
             {
-                //await Toast.Make($"The folder was picked: Name - {result.Folder.Name}, Path - {result.Folder.Path}", ToastDuration.Long).Show(CancellationToken.None);
                 Globals.StfBase.MediaRootDirectory = result.Folder.Path;
                 await Messager.MsgBoxAsync("You have picked the following MediaRootDirectory folder location: " + Globals.StfBase.MediaRootDirectory);
             }
             else
             {
-                await Messager.MsgBoxAsync("Unable to selected the picked folder (" + Globals.StfBase.MediaRootDirectory + ") shutting down the application.");
+                await ShowFolderPickerFailureAsync(result, "media");
                 Messager.RequestCloseApp();
-                //await Toast.Make($"The folder was not picked with error: {result.Exception.Message}").Show(CancellationToken.None);
             }
         }
 
@@ -459,39 +456,51 @@ namespace STFM
         async static Task PickTestResultsRootFolder()
         {
             await Messager.MsgBoxAsync("No test results folder (TestResultsRootFolder) has yet been set. Please click OK and select a test results folder in the dialog that appears.", Messager.MsgBoxStyle.Information, "Set test results folder");
-            var result = await FolderPicker.PickAsync(CancellationToken.None);
+            var result = await Storage.StfFolderPicker.PickAsync(CancellationToken.None);
             if (result.IsSuccessful)
             {
-                //await Toast.Make($"The folder was picked: Name - {result.Folder.Name}, Path - {result.Folder.Path}", ToastDuration.Long).Show(CancellationToken.None);
                 SharedSpeechTestObjects.TestResultsRootFolder = result.Folder.Path;
                 await Messager.MsgBoxAsync("You have picked the following test results folder: " + SharedSpeechTestObjects.TestResultsRootFolder);
 
             }
             else
             {
-                await Messager.MsgBoxAsync("Unable to selected the picked folder (" + SharedSpeechTestObjects.TestResultsRootFolder + ") shutting down the application.");
+                await ShowFolderPickerFailureAsync(result, "test results");
                 Messager.RequestCloseApp();
-                //await Toast.Make($"The folder was not picked with error: {result.Exception.Message}").Show(CancellationToken.None);
             }
         }
 
         async static Task PickStfLogRootFolder()
         {
             await Messager.MsgBoxAsync("No application log folder has yet been set. Please click OK and select a log folder in the dialog that appears.", Messager.MsgBoxStyle.Information, "Set application log folder");
-            var result = await FolderPicker.PickAsync(CancellationToken.None);
+            var result = await Storage.StfFolderPicker.PickAsync(CancellationToken.None);
             if (result.IsSuccessful)
             {
-                //await Toast.Make($"The folder was picked: Name - {result.Folder.Name}, Path - {result.Folder.Path}", ToastDuration.Long).Show(CancellationToken.None);
                 Logging.LogFileDirectory = result.Folder.Path;
                 await Messager.MsgBoxAsync("You have picked the following log folder: " + Logging.LogFileDirectory);
 
             }
             else
             {
-                await Messager.MsgBoxAsync("Unable to select the picked folder (" + Logging.LogFileDirectory + ") shutting down the application.");
+                await ShowFolderPickerFailureAsync(result, "application log");
                 Messager.RequestCloseApp();
-                //await Toast.Make($"The folder was not picked with error: {result.Exception.Message}").Show(CancellationToken.None);
             }
+        }
+
+        static Task ShowFolderPickerFailureAsync(FolderPickerResult result, string folderDescription)
+        {
+            if (result.Exception is System.OperationCanceledException)
+            {
+                return Messager.MsgBoxAsync($"No {folderDescription} folder was selected. A folder is required, so the application will close.");
+            }
+
+            // The log folder may not exist yet. Keep the full exception in the
+            // debugger output and show enough detail to diagnose a native failure.
+            System.Diagnostics.Debug.WriteLine($"Selecting the {folderDescription} folder failed: {result.Exception}");
+            var details = result.Exception is { } exception
+                ? $"{exception.GetType().Name} (0x{exception.HResult:X8}): {exception.Message}"
+                : "The folder picker returned no error details.";
+            return Messager.MsgBoxAsync($"Unable to select the {folderDescription} folder.\n\n{details}\n\nThe application will close.");
         }
 
         static string ReadMediaRootDirectory()
