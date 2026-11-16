@@ -35,21 +35,35 @@ public partial class OtoscopyView : ContentView
     private int resultVersion;
     private int exportedVersion = -1;
 
-    public OtoscopyView()
+    public OtoscopyView() : this(embedded: false) { }
+
+    /// <summary>
+    /// Embedded mode delegates examination storage and navigation to the screening host.
+    /// The host must await ReleaseForHostAsync before removing this view.
+    /// </summary>
+    public OtoscopyView(bool embedded)
     {
+        IsEmbedded = embedded;
         InitializeComponent();
         camera = OtoscopyCameraFactory.Create();
         PreviewHost.Add(camera.Preview);
+        CloseButton.IsVisible = !embedded;
+        SaveExportButton.IsVisible = !embedded;
+        ReferenceEntry.IsVisible = !embedded;
+        ClearButton.IsVisible = !embedded;
+        ResultStatusLabel.IsVisible = !embedded;
         Loaded += ViewLoaded;
         Unloaded += ViewUnloaded;
         SizeChanged += ViewSizeChanged;
         camera.Preview.Loaded += PreviewReady;
         camera.Preview.HandlerChanged += PreviewReady;
-#if !ANDROID
-        StatusLabel.Text = "USB otoscopy is available in the Android app.";
+#if !ANDROID && !WINDOWS
+        StatusLabel.Text = "USB otoscopy is available in the Android and Windows apps.";
         ReconnectButton.IsEnabled = false;
 #endif
     }
+
+    public bool IsEmbedded { get; }
 
     public OtoscopyImage? LeftImage { get; private set; }
     public OtoscopyImage? RightImage { get; private set; }
@@ -62,6 +76,34 @@ public partial class OtoscopyView : ContentView
 
     private bool HasImages => LeftImage is not null || RightImage is not null;
     private bool HasUnexportedImages => HasImages && resultVersion != exportedVersion;
+
+    /// <summary>
+    /// Restores a host's persisted captures before this view is attached or loaded.
+    /// Original capture timestamps and ear identities are preserved. Call on the UI thread.
+    /// </summary>
+    public void RestoreImages(OtoscopyImage? left, OtoscopyImage? right)
+    {
+        if (loaded || active || busy || closed || resultActionInProgress)
+            throw new InvalidOperationException("Restore images before opening the otoscopy view.");
+        if (left is not null && left.Ear != OtoscopyEar.Left)
+            throw new ArgumentException("The left image must belong to the left ear.", nameof(left));
+        if (right is not null && right.Ear != OtoscopyEar.Right)
+            throw new ArgumentException("The right image must belong to the right ear.", nameof(right));
+
+        ClearImages();
+        LeftImage = left;
+        RightImage = right;
+        LeftPreview.Source = left is null ? null : ImageSource.FromStream(left.OpenRead);
+        RightPreview.Source = right is null ? null : ImageSource.FromStream(right.OpenRead);
+        LeftPlaceholder.IsVisible = left is null;
+        RightPlaceholder.IsVisible = right is null;
+        CaptureLeftButton.Text = left is null ? "Capture left" : "Retake left";
+        CaptureRightButton.Text = right is null ? "Capture right" : "Retake right";
+        OnPropertyChanged(nameof(LeftImage));
+        OnPropertyChanged(nameof(RightImage));
+        ResultStatusLabel.Text = HasImages ? "Previous images restored." : "No images captured yet.";
+        UpdateButtons();
+    }
 
     /// <summary>Clears both results and invalidates any capture already in progress. Call on the UI thread.</summary>
     public void ClearImages()
@@ -94,6 +136,34 @@ public partial class OtoscopyView : ContentView
         await UpdateActivityAsync();
         if (!wasActive)
             await DisconnectAsync("Camera paused. Tap Reconnect to resume.");
+    }
+
+    /// <summary>
+    /// Ends an embedded step without a save/discard dialog or clearing its images.
+    /// Call on the UI thread. Remove this view only after successful completion;
+    /// a shutdown failure leaves its preview attached and throws to the host.
+    /// </summary>
+    public async Task ReleaseForHostAsync()
+    {
+        if (!IsEmbedded)
+            throw new InvalidOperationException("Use CloseAsync for a standalone otoscopy view.");
+        if (closed)
+            return;
+        if (resultActionInProgress)
+            throw new InvalidOperationException("An otoscopy operation is already in progress.");
+        resultActionInProgress = true;
+        UpdateButtons();
+        try
+        {
+            await StopCameraAsync();
+            await camera.DisposeAsync();
+            FinishClosing();
+        }
+        finally
+        {
+            resultActionInProgress = false;
+            UpdateButtons();
+        }
     }
 
     private void ViewLoaded(object? sender, EventArgs e) => RunSafely(async () =>
@@ -187,7 +257,7 @@ public partial class OtoscopyView : ContentView
 
     private async Task UpdateActivityAsync()
     {
-#if ANDROID
+#if ANDROID || WINDOWS
         bool shouldBeActive = loaded && pageVisible && windowActive && !manuallyStopped && !closed;
         if (shouldBeActive == active)
         {
@@ -328,7 +398,8 @@ public partial class OtoscopyView : ContentView
             if (!active || version != sessionVersion)
                 return;
 
-            var cameras = camera.GetCameras();
+            var cameras = await camera.GetCamerasAsync(token);
+            token.ThrowIfCancellationRequested();
             var selected = cameras.FirstOrDefault(item => item.Id == selectedCameraId) ?? cameras.FirstOrDefault();
             bool sameDevice = selected?.Id == selectedCameraId;
             selectedCameraId = selected?.Id;
@@ -671,13 +742,7 @@ public partial class OtoscopyView : ContentView
                 // pending cleanup rather than disposing it underneath native code.
                 return false;
             }
-            closed = true;
-            loaded = false;
-            DetachLifecycle();
-            Loaded -= ViewLoaded;
-            Unloaded -= ViewUnloaded;
-            camera.Preview.Loaded -= PreviewReady;
-            camera.Preview.HandlerChanged -= PreviewReady;
+            FinishClosing();
             IsVisible = false;
             Closed?.Invoke(this, EventArgs.Empty);
             return true;
@@ -687,6 +752,18 @@ public partial class OtoscopyView : ContentView
             resultActionInProgress = false;
             UpdateButtons();
         }
+    }
+
+    private void FinishClosing()
+    {
+        closed = true;
+        loaded = false;
+        DetachLifecycle();
+        Loaded -= ViewLoaded;
+        Unloaded -= ViewUnloaded;
+        SizeChanged -= ViewSizeChanged;
+        camera.Preview.Loaded -= PreviewReady;
+        camera.Preview.HandlerChanged -= PreviewReady;
     }
 
     private void UpdateButtons()
@@ -704,7 +781,7 @@ public partial class OtoscopyView : ContentView
         CloseButton.IsEnabled = !closed && !resultActionInProgress;
         BusyIndicator.IsVisible = busy || resultActionInProgress;
         BusyIndicator.IsRunning = busy || resultActionInProgress;
-#if ANDROID
+#if ANDROID || WINDOWS
         ReconnectButton.IsEnabled = available && loaded && pageVisible && windowActive;
 #endif
     }

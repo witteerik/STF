@@ -150,7 +150,7 @@ public partial class SSQ12_HaView : ContentView
                     {
                         ReturnValueList.Add("Använder hörapparat till höger öra.");
                     }
-                    else if (HA_DoUseRight_RadioButton.IsChecked)
+                    else if (HA_DoUseBoth_RadioButton.IsChecked)
                     {
                         ReturnValueList.Add("Använder hörapparat till båda öronen.");
                     }
@@ -190,7 +190,7 @@ public partial class SSQ12_HaView : ContentView
                     {
                         ReturnValueList.Add("Hearing aid on right ear.");
                     }
-                    else if (HA_DoUseRight_RadioButton.IsChecked)
+                    else if (HA_DoUseBoth_RadioButton.IsChecked)
                     {
                         ReturnValueList.Add("Hearing aids on both ears.");
                     }
@@ -216,6 +216,11 @@ public partial class SSQ12_HaView : ContentView
         return string.Join("\n", ReturnValueList);
 
     }
+
+    public Ssq12HearingAidSnapshot GetSnapshot()
+        => new(HA_DoUse_RadioButton.IsChecked ? true : HA_NotUse_RadioButton.IsChecked ? false : null,
+            HA_DoUse_RadioButton.IsChecked && (HA_DoUseLeft_RadioButton.IsChecked || HA_DoUseBoth_RadioButton.IsChecked),
+            HA_DoUse_RadioButton.IsChecked && (HA_DoUseRight_RadioButton.IsChecked || HA_DoUseBoth_RadioButton.IsChecked));
 
     public enum BoolWithNotSet
     {

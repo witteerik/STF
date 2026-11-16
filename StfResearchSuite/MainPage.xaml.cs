@@ -89,12 +89,20 @@ namespace OstfTabletSuite
 
             if (MyWelcomeView.RunScreeningTest)
             {
-                var mySpeechTest = new STFM.SpecializedViews.ScreeningSuite.ScreeningSuiteView
+                var screening = new STFM.Extension.Views.FullScreeningView
                 {
                     VerticalOptions = LayoutOptions.Fill,
                     HorizontalOptions = LayoutOptions.Fill
                 };
-                Content = mySpeechTest;
+                screening.Closed += ScreeningClosed;
+                Content = screening;
+
+                void ScreeningClosed(object? source, EventArgs args)
+                {
+                    screening.Closed -= ScreeningClosed;
+                    if (ReferenceEquals(Content, screening))
+                        Content = MyWelcomeView;
+                }
             }
             else
             {
@@ -109,6 +117,18 @@ namespace OstfTabletSuite
                 Content = mySpeechTest;
             }
 
+        }
+
+        protected override bool OnBackButtonPressed()
+        {
+            var screening = Content as STFM.Extension.Views.FullScreeningView
+                ?? MyWelcomeView.ActiveScreening;
+            if (screening is not null)
+            {
+                _ = screening.CloseAsync();
+                return true;
+            }
+            return base.OnBackButtonPressed();
         }
 
         public void WelcomePageStartCalibrator(object sender, EventArgs e)

@@ -51,7 +51,13 @@ internal sealed class AndroidUsbOtoscopyCamera : IOtoscopyCamera
     public event EventHandler? DevicesChanged;
     public event EventHandler<OtoscopyCameraErrorEventArgs>? Error;
 
-    public IReadOnlyList<OtoscopyCameraDevice> GetCameras()
+    public Task<IReadOnlyList<OtoscopyCameraDevice>> GetCamerasAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(GetCameras());
+    }
+
+    private IReadOnlyList<OtoscopyCameraDevice> GetCameras()
         => AndroidUVCDevices.FindCameras()
             .Select(device => new OtoscopyCameraDevice(device.DeviceName,
                 string.IsNullOrWhiteSpace(device.ProductName) ? "USB camera" : device.ProductName))

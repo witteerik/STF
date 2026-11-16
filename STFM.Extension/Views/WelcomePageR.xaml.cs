@@ -30,12 +30,11 @@ public partial class WelcomePageR : ContentView
         SelectedLanguage_Picker.ItemsSource = AvailableGuiLanguages;
         if (AvailableGuiLanguages.Count>0)
         {
-            // Picking the second language, which is Swedish when this is written
-            SelectedLanguage_Picker.SelectedIndex = 1;
+            SelectedLanguage_Picker.SelectedIndex = 0;
         }
         else
         {
-            SelectedLanguage_Picker.SelectedIndex = 0;
+            SelectedLanguage_Picker.SelectedIndex = -1;
         }
 
         //SoundFieldSimulation_Label.IsVisible = false;
@@ -50,7 +49,9 @@ public partial class WelcomePageR : ContentView
 
     private void SelectedLanguage_Picker_SelectedIndexChanged(object sender, EventArgs e)
     {
-        STFN.Core.SharedSpeechTestObjects.GuiLanguage = (STFN.Core.Utils.EnumCollection.Languages)SelectedLanguage_Picker.SelectedItem;
+        if (SelectedLanguage_Picker.SelectedItem is not STFN.Core.Utils.EnumCollection.Languages language)
+            return;
+        STFN.Core.SharedSpeechTestObjects.GuiLanguage = language;
         UpdateLanguageStrings();
     }
 
@@ -256,6 +257,31 @@ public partial class WelcomePageR : ContentView
             STFM.StfmBase.ClearAppCache(sender, e);
 
             Messager.MsgBox("Cache cleared successfully.", Messager.MsgBoxStyle.Information, "Cache cleared");
+        }
+    }
+
+    public FullScreeningView? ActiveScreening { get; private set; }
+
+    private void StartFullScreening_Button_Clicked(object sender, EventArgs e)
+    {
+        if (ActiveScreening is not null)
+            return;
+        var welcomeContent = Content;
+        var screening = new FullScreeningView
+        {
+            VerticalOptions = LayoutOptions.Fill,
+            HorizontalOptions = LayoutOptions.Fill
+        };
+        ActiveScreening = screening;
+        screening.Closed += ScreeningClosed;
+        Content = screening;
+
+        void ScreeningClosed(object? source, EventArgs args)
+        {
+            screening.Closed -= ScreeningClosed;
+            ActiveScreening = null;
+            if (ReferenceEquals(Content, screening))
+                Content = welcomeContent;
         }
     }
 

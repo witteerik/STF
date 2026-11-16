@@ -81,6 +81,7 @@ public class ResponseView_Mafc : ResponseView
     public override void InitializeNewTrial()
     {
         StopAllTimers();
+        ResponseIsGiven = false;
         
         if (ResponseAlternativeGrid != null) {
             //ResponseAlternativeGrid.IsVisible = false;
@@ -299,7 +300,7 @@ public class ResponseView_Mafc : ResponseView
                 var currentFrame = (Frame)child;
                 if (currentFrame.Content is Button)
                 {
-                    var button = (Button)buttonParentFrame.Content;
+                    var button = (Button)currentFrame.Content;
                     button.Clicked -= ReponseButton_Clicked;
                 }
 
@@ -327,6 +328,10 @@ public class ResponseView_Mafc : ResponseView
 
     private void ReportResult(string RespondedSpelling)
     {
+        // UI callbacks claim the trial before ResponseView dispatches to a worker.
+        // A late click/timeout must not queue a second answer for the same trial.
+        if (ResponseIsGiven) return;
+        ResponseIsGiven = true;
 
         // Storing the raw response
         SpeechTestInputEventArgs args = new SpeechTestInputEventArgs();
@@ -366,6 +371,7 @@ public class ResponseView_Mafc : ResponseView
 
     public override void ResponseTimesOut()
     {
+        if (ResponseIsGiven) return;
 
         // Hides all other labels, fokuses the selected one
         foreach (var child in ResponseAlternativeGrid.Children)

@@ -1,8 +1,9 @@
 # USB otoscopy view
 
-`STFM.Extension.Views.OtoscopyView` is a reusable MAUI `ContentView` for an Android
-USB/UVC webcam or otoscope. It uses **VisioForge Video Capture SDK .NET**, with one
-JPEG result for the left ear and one for the right ear.
+`STFM.Extension.Views.OtoscopyView` is a reusable MAUI `ContentView` for an Android or Windows
+USB/UVC webcam or otoscope. Android uses **VisioForge Video Capture SDK .NET**;
+Windows uses native `MediaCapture` without an additional camera SDK. Both retain
+one JPEG result for the left ear and one for the right ear.
 
 ## Try it
 
@@ -22,6 +23,12 @@ build step.
    images** before starting another examination, or **Close** to return to the
    welcome screen.
 
+On Windows, attach a USB webcam or otoscope supported by the installed Windows
+driver. Windows camera access must be enabled for the app. Only colour video
+sources with USB VID/PID identifiers are listed; sources explicitly identified
+as mounted in the computer enclosure are excluded. Drivers without a compatible
+MediaFrameReader colour stream report an error rather than using a built-in camera.
+
 The view selects the first USB camera automatically. If several are attached, a
 camera selector appears. It never switches to the tablet's built-in camera.
 Plugging a camera in while the view is active also starts connection automatically.
@@ -31,7 +38,10 @@ Resolution switching has been removed. The source requests **1280 × 720 at
 supported mode. This is a preference, not a promise of that output size or rate.
 The app does not call the native `GetModes` probe or cycle through alternative
 modes. This avoids the extra native camera opens and closes used by the previous
-mode picker.
+mode picker. On Windows, a supported format closest to the same size/rate
+preference is selected once before streaming starts. Its preview is limited to
+10 frames/second to reduce encoding and UI overhead; snapshots retain the full
+selected camera resolution.
 
 If a camera connects but delivers no frames, unplug/reconnect it and tap
 **Reconnect**. **Copy camera details** copies USB identifiers, tablet and SDK
@@ -109,6 +119,15 @@ otoscopy.Closed += (_, _) => Content = previousContent;
 Content = otoscopy;
 ```
 
+The full screening suite instead creates `new OtoscopyView(embedded: true)`.
+Embedded mode hides the standalone export, reference, clear and close controls;
+the suite owns examination storage and navigation. After copying or saving the
+captured images, the host must `await otoscopy.ReleaseForHostAsync()` **before**
+removing the view. It throws if shutdown is incomplete or failed, leaving the
+preview attached. On success, its camera and lifecycle handlers are released and
+`LeftImage`/`RightImage` remain available. Do not call standalone `CloseAsync()` to
+advance an embedded examination.
+
 `WelcomePageR` uses this pattern. A custom host can call
 `await otoscopy.CloseAsync()` to run the same save/discard/cancel workflow as the
 Close button. It returns `true` when closed and `false` if closing was cancelled
@@ -162,7 +181,9 @@ output if the operation is cancelled or fails.
 ## Dependencies and configuration
 
 The code matches this repository's .NET 10 MAUI targets and Android 12 minimum.
-Windows builds display an Android-only placeholder without loading VisioForge.
+Windows camera support uses the operating system media APIs and needs the
+`webcam` device capability in a packaged host app manifest; it does not load
+VisioForge. The supplied StfResearchSuite manifest includes that capability.
 
 Pinned Android dependencies:
 

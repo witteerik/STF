@@ -6,11 +6,11 @@
 
     <StackLayout x:Name="MainGrid" Margin="0,30,0,30">
 
-        <Label x:Name="QuestionLabel"
+        <Label x:Name="QuestionLabel" TextColor="{x:Static views:Ssq12Styling.TextColor}"
            Margin="0,0,0,0" FontSize="{x:Static views:Ssq12Styling.MediumFontSize}">
         </Label>
 
-        <Label x:Name="ResponseAlternativeComment"
+        <Label x:Name="ResponseAlternativeComment" TextColor="{x:Static views:Ssq12Styling.TextColor}"
            Margin="0,20,0,0" FontSize="{x:Static views:Ssq12Styling.SmallFontSize}">
         </Label>
         
@@ -40,11 +40,11 @@
 
         <StackLayout x:Name="CollapsibleShowResponse_StackLayout" IsVisible="False" Padding="10,5" />
 
-        <Label x:Name="CommentHeadingLabel" Grid.Row="2"
+        <Label x:Name="CommentHeadingLabel" TextColor="{x:Static views:Ssq12Styling.TextColor}" Grid.Row="2"
            Margin="0,40,0,0" FontSize="{x:Static views:Ssq12Styling.MediumFontSize}">
         </Label>
 
-        <Label x:Name="CommentInstructionLabel" Grid.Row="2"
+        <Label x:Name="CommentInstructionLabel" TextColor="{x:Static views:Ssq12Styling.TextColor}" Grid.Row="2"
            Margin="0,40,0,0" FontSize="{x:Static views:Ssq12Styling.SmallFontSize}">
         </Label>
 
@@ -53,7 +53,7 @@
                 StrokeShape="RoundRectangle 8"
                  Margin="0,20,0,20" IsVisible="False" >
 
-            <Editor x:Name="CommentEditor" TextChanged="CommentEditor_TextChanged"
+            <Editor x:Name="CommentEditor" TextColor="{x:Static views:Ssq12Styling.TextColor}" TextChanged="CommentEditor_TextChanged"
                  FontSize="{x:Static views:Ssq12Styling.SmallFontSize}" BackgroundColor="{x:Static views:Ssq12Styling.TextFrameBackcolor}" />
             
         </Border>

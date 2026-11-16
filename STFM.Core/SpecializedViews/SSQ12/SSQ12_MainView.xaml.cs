@@ -136,7 +136,7 @@ public partial class SSQ12_MainView : ContentView
 
         }
 
-        SubmitButton = new Button() { BackgroundColor = Ssq12Styling.ButtonColor, FontSize = Ssq12Styling.LargeFontSize, FontAttributes = FontAttributes.Bold };
+        SubmitButton = new Button() { BackgroundColor = Ssq12Styling.ButtonColor, TextColor = Colors.White, FontSize = Ssq12Styling.LargeFontSize, FontAttributes = FontAttributes.Bold };
         SubmitButton.HeightRequest = 200;
         SubmitButton.HorizontalOptions = LayoutOptions.Fill;
         SubmitButton.Clicked += SubmitButton_Clicked;
@@ -147,11 +147,11 @@ public partial class SSQ12_MainView : ContentView
         ReferenceFrame.Margin = new Thickness(100, 50, 100, 50);
         ReferenceFrame.HorizontalOptions = LayoutOptions.Fill;
         MainStackLayout.Add(ReferenceFrame);
-        Label ReferenceLabel1 = new Label() { FontSize = Ssq12Styling.MediumFontSize };
+        Label ReferenceLabel1 = new Label() { FontSize = Ssq12Styling.MediumFontSize, TextColor = Ssq12Styling.TextColor };
 
         ReferenceLabel1.HorizontalOptions = LayoutOptions.Fill;
         ReferenceLabel1.VerticalOptions = LayoutOptions.Fill;
-        Label ReferenceLabel2 = new Label() { FontSize = Ssq12Styling.TinyFontSize };
+        Label ReferenceLabel2 = new Label() { FontSize = Ssq12Styling.TinyFontSize, TextColor = Ssq12Styling.TextColor };
         ReferenceLabel2.HorizontalOptions = LayoutOptions.Fill;
         ReferenceLabel2.VerticalOptions= LayoutOptions.Fill;
         StackLayout ReferenceStackLayout = new StackLayout();
@@ -298,6 +298,15 @@ public partial class SSQ12_MainView : ContentView
 
     }
 
+    /// <summary>Copies the answers without parsing localized result text.</summary>
+    public IReadOnlyList<Ssq12AnswerSnapshot> GetAnswerSnapshot()
+        => CurrentSsqQuestions.Select(question => new Ssq12AnswerSnapshot(
+            question.QuestionNumber, question.Question,
+            question.ResponseIndex is >= 0 and <= 10 ? question.ResponseIndex : null,
+            question.ResponseIndex == 11, question.ResponseIndex >= 0)).ToArray();
+
+    public Ssq12HearingAidSnapshot GetHearingAidSnapshot() => sSQ12_HaView.GetSnapshot();
+
     public string GetResults(bool IncludeDetails = false)
     {
 
@@ -410,3 +419,8 @@ public partial class SSQ12_MainView : ContentView
 
 
 }
+
+
+/// <summary>A numeric rating is null for an unanswered or "don't know" response.</summary>
+public sealed record Ssq12AnswerSnapshot(int Number, string Question, int? Rating, bool DontKnow, bool Answered);
+public sealed record Ssq12HearingAidSnapshot(bool? UsesHearingAids, bool Left, bool Right);

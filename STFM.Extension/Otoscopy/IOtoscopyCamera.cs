@@ -22,7 +22,7 @@ internal interface IOtoscopyCamera : IAsyncDisposable
     string Diagnostics { get; }
     event EventHandler? DevicesChanged;
     event EventHandler<OtoscopyCameraErrorEventArgs>? Error;
-    IReadOnlyList<OtoscopyCameraDevice> GetCameras();
+    Task<IReadOnlyList<OtoscopyCameraDevice>> GetCamerasAsync(CancellationToken cancellationToken);
     void StartWatching();
     void StopWatching();
     Task ConnectAsync(OtoscopyCameraDevice device, CancellationToken cancellationToken);
@@ -36,18 +36,20 @@ internal static class OtoscopyCameraFactory
     {
 #if ANDROID
         return new AndroidUsbOtoscopyCamera();
+#elif WINDOWS
+        return new WindowsUsbOtoscopyCamera();
 #else
         return new UnsupportedOtoscopyCamera();
 #endif
     }
 }
 
-#if !ANDROID
+#if !ANDROID && !WINDOWS
 internal sealed class UnsupportedOtoscopyCamera : IOtoscopyCamera
 {
     public View Preview { get; } = new Label
     {
-        Text = "USB otoscopy is available in the Android app.",
+        Text = "USB otoscopy is available in the Android and Windows apps.",
         TextColor = Colors.White,
         HorizontalTextAlignment = TextAlignment.Center,
         VerticalTextAlignment = TextAlignment.Center
@@ -55,16 +57,17 @@ internal sealed class UnsupportedOtoscopyCamera : IOtoscopyCamera
 
     public bool IsPreviewReady => false;
     public bool IsConnected => false;
-    public string Diagnostics => "USB otoscopy requires Android.";
+    public string Diagnostics => "USB otoscopy requires Android or Windows.";
     public event EventHandler? DevicesChanged { add { } remove { } }
     public event EventHandler<OtoscopyCameraErrorEventArgs>? Error { add { } remove { } }
-    public IReadOnlyList<OtoscopyCameraDevice> GetCameras() => [];
+    public Task<IReadOnlyList<OtoscopyCameraDevice>> GetCamerasAsync(CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyList<OtoscopyCameraDevice>>([]);
     public void StartWatching() { }
     public void StopWatching() { }
     public Task ConnectAsync(OtoscopyCameraDevice device, CancellationToken cancellationToken)
-        => Task.FromException(new PlatformNotSupportedException("USB otoscopy requires Android."));
+        => Task.FromException(new PlatformNotSupportedException("USB otoscopy requires Android or Windows."));
     public Task<byte[]> CaptureJpegAsync(CancellationToken cancellationToken)
-        => Task.FromException<byte[]>(new PlatformNotSupportedException("USB otoscopy requires Android."));
+        => Task.FromException<byte[]>(new PlatformNotSupportedException("USB otoscopy requires Android or Windows."));
     public Task DisconnectAsync() => Task.CompletedTask;
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }

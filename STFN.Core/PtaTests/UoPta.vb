@@ -74,6 +74,39 @@ Public Class UoPta
 
     Private SubTests As New List(Of PtaSubTest)
 
+    ''' <summary>Immutable copy of results, including the separate 1 kHz reliability retest.</summary>
+    Public Function GetThresholdSnapshot() As IReadOnlyList(Of ThresholdSnapshot)
+        Return SubTests.Select(Function(item) New ThresholdSnapshot(item.Side, item.Frequency,
+            item.Threshold, item.ThresholdStatus, item.IsReliabilityCheck,
+            PtaTestProtocol = PtaTestProtocols.SAME96_Screening AndAlso
+                item.ThresholdStatus = PtaSubTest.ThresholdStatuses.Reached AndAlso
+                item.Threshold.HasValue AndAlso item.Threshold.Value = ScreeningLevel)).ToArray()
+    End Function
+
+    Public Function GetTestFrequencies() As IReadOnlyList(Of Integer)
+        Return TestFrequencies.ToArray()
+    End Function
+
+    Public NotInheritable Class ThresholdSnapshot
+        Public ReadOnly Property Side As Utils.Sides
+        Public ReadOnly Property Frequency As Integer
+        Public ReadOnly Property Level As Integer?
+        Public ReadOnly Property Status As PtaSubTest.ThresholdStatuses
+        Public ReadOnly Property IsReliabilityCheck As Boolean
+        Public ReadOnly Property AtScreeningLevel As Boolean
+
+        Public Sub New(side As Utils.Sides, frequency As Integer, level As Integer?,
+                       status As PtaSubTest.ThresholdStatuses, isReliabilityCheck As Boolean,
+                       atScreeningLevel As Boolean)
+            Me.Side = side
+            Me.Frequency = frequency
+            Me.Level = level
+            Me.Status = status
+            Me.IsReliabilityCheck = isReliabilityCheck
+            Me.AtScreeningLevel = atScreeningLevel
+        End Sub
+    End Class
+
     Private Randomizer As New Random
 
     Private TestRetestDifference As Integer? = Nothing

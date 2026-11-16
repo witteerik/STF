@@ -27,53 +27,66 @@ namespace STFM
 
         public static bool IsInitialized = false;
 
-        public static async Task InitializeSTFM(STFN.Core.AudioSystemSpecification.MediaPlayerTypes MediaPlayerType = AudioSystemSpecification.MediaPlayerTypes.Default, bool RequestExternalStoragePermission = true)
+        private static readonly SemaphoreSlim initializationLock = new(1, 1);
+        private static bool cacheCallbacksAttached;
+
+        public static async Task InitializeSTFM(
+            STFN.Core.AudioSystemSpecification.MediaPlayerTypes MediaPlayerType = AudioSystemSpecification.MediaPlayerTypes.Default,
+            bool RequestExternalStoragePermission = true,
+            bool CloseAppOnAudioFailure = true)
         {
-
-            // Returning if already called
-            if (IsInitialized == true)
+            await initializationLock.WaitAsync();
+            try
             {
-                return;
-            }
-            IsInitialized = true;
+                if (IsInitialized)
+                    return;
 
-            //Setting up app cache callbacks
-            STFN.Core.AppCache.OnAppCacheVariableExists += AppCacheVariableExists;
-            STFN.Core.AppCache.OnSetAppCacheStringVariableValue += SetAppCacheStringVariableValue;
-            STFN.Core.AppCache.OnSetAppCacheIntegerVariableValue += SetAppCacheIntegerVariableValue;
-            STFN.Core.AppCache.OnSetAppCacheDoubleVariableValue += SetAppCacheDoubleVariableValue;
-            STFN.Core.AppCache.OnGetAppCacheStringVariableValue += GetAppCacheStringVariableValue;
-            STFN.Core.AppCache.OnGetAppCacheDoubleVariableValue += GetAppCacheDoubleVariableValue;
-            STFN.Core.AppCache.OnGetAppCacheIntegerVariableValue += GetAppCacheIntegerVariableValue;
-            STFN.Core.AppCache.OnRemoveAppCacheVariable += RemoveAppCacheVariable;
-            STFN.Core.AppCache.OnClearAppCache += ClearAppCache;
-
-
-            await CheckAndSetStfLogRootFolder(RequestExternalStoragePermission);
-
-            await SetupMediaFromPackage();
-
-            await CheckAndSetMediaRootDirectory(RequestExternalStoragePermission);
-
-            await CheckAndSetTestResultsRootFolder(RequestExternalStoragePermission);
-
-
-            // Initializing STF
-            Globals.StfBase.InitializeSTF(GetCurrentPlatform(), MediaPlayerType, Globals.StfBase.MediaRootDirectory);
-
-            if (Globals.StfBase.CurrentMediaPlayerType == AudioSystemSpecification.MediaPlayerTypes.AudioTrackBased)
-            {
-#if ANDROID
-
-                // We now need to check that the requested devices exist, which could not be done in STFN, since the Android AudioTrack do not exist there.
-                bool AudioTrackBasedPlayerInitResult = await AndroidAudioTrackPlayer.InitializeAudioTrackBasedPlayer();
-
-                if (AudioTrackBasedPlayerInitResult == false)
+                // An unsuccessful setup can be retried without registering callbacks twice.
+                if (!cacheCallbacksAttached)
                 {
-                    Messager.RequestCloseApp();
+                    STFN.Core.AppCache.OnAppCacheVariableExists += AppCacheVariableExists;
+                    STFN.Core.AppCache.OnSetAppCacheStringVariableValue += SetAppCacheStringVariableValue;
+                    STFN.Core.AppCache.OnSetAppCacheIntegerVariableValue += SetAppCacheIntegerVariableValue;
+                    STFN.Core.AppCache.OnSetAppCacheDoubleVariableValue += SetAppCacheDoubleVariableValue;
+                    STFN.Core.AppCache.OnGetAppCacheStringVariableValue += GetAppCacheStringVariableValue;
+                    STFN.Core.AppCache.OnGetAppCacheDoubleVariableValue += GetAppCacheDoubleVariableValue;
+                    STFN.Core.AppCache.OnGetAppCacheIntegerVariableValue += GetAppCacheIntegerVariableValue;
+                    STFN.Core.AppCache.OnRemoveAppCacheVariable += RemoveAppCacheVariable;
+                    STFN.Core.AppCache.OnClearAppCache += ClearAppCache;
+                    cacheCallbacksAttached = true;
                 }
 
+                await CheckAndSetStfLogRootFolder(RequestExternalStoragePermission);
+                await SetupMediaFromPackage();
+                await CheckAndSetMediaRootDirectory(RequestExternalStoragePermission);
+                await CheckAndSetTestResultsRootFolder(RequestExternalStoragePermission);
+                Globals.StfBase.InitializeSTF(GetCurrentPlatform(), MediaPlayerType, Globals.StfBase.MediaRootDirectory);
+
+                if (Globals.StfBase.CurrentMediaPlayerType == AudioSystemSpecification.MediaPlayerTypes.AudioTrackBased)
+                {
+#if ANDROID
+                    bool initialized = await AndroidAudioTrackPlayer.InitializeAudioTrackBasedPlayer();
+                    if (!initialized)
+                    {
+                        if (CloseAppOnAudioFailure)
+                        {
+                            Messager.RequestCloseApp();
+                            return;
+                        }
+                        throw new InvalidOperationException("Ljudenheten kunde inte startas. Kontrollera anslutning och ljudkonfiguration och försök igen.");
+                    }
 #endif
+                }
+                IsInitialized = true;
+            }
+            catch
+            {
+                IsInitialized = false;
+                throw;
+            }
+            finally
+            {
+                initializationLock.Release();
             }
         }
 
@@ -475,7 +488,7 @@ namespace STFM
             }
             else
             {
-                await Messager.MsgBoxAsync("Unable to selected the picked folder (" + Logging.LogFileDirectory + ") shutting down the application.");
+                await Messager.MsgBoxAsync("Unable to select the picked folder (" + Logging.LogFileDirectory + ") shutting down the application.");
                 Messager.RequestCloseApp();
                 //await Toast.Make($"The folder was not picked with error: {result.Exception.Message}").Show(CancellationToken.None);
             }
